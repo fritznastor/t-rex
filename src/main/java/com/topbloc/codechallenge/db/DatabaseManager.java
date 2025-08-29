@@ -308,6 +308,14 @@ public class DatabaseManager {
     }
 
     public static String addInventoryItem(int itemId, int stock, int capacity) {
+        // Validate non-negative values
+        if (stock < 0) {
+            return "{\"success\": false, \"message\": \"Stock cannot be negative\"}";
+        }
+        if (capacity < 0) {
+            return "{\"success\": false, \"message\": \"Capacity cannot be negative\"}";
+        }
+        
         // First check if item exists
         String checkItemSql = "SELECT id FROM items WHERE id = ?";
         String insertSql = "INSERT INTO inventory (item, stock, capacity) VALUES (?, ?, ?)";
@@ -371,6 +379,11 @@ public class DatabaseManager {
     }
 
     public static String addDistributorPrice(int distributorId, int itemId, double cost) {
+        // Validate non-negative cost
+        if (cost < 0) {
+            return "{\"success\": false, \"message\": \"Cost cannot be negative\"}";
+        }
+        
         // Check if distributor and item exist
         String checkDistributorSql = "SELECT id FROM distributors WHERE id = ?";
         String checkItemSql = "SELECT id FROM items WHERE id = ?";
@@ -424,6 +437,14 @@ public class DatabaseManager {
             return "{\"success\": false, \"message\": \"At least one parameter (stock or capacity) must be provided\"}";
         }
         
+        // Validate non-negative values
+        if (hasStock && stock < 0) {
+            return "{\"success\": false, \"message\": \"Stock cannot be negative\"}";
+        }
+        if (hasCapacity && capacity < 0) {
+            return "{\"success\": false, \"message\": \"Capacity cannot be negative\"}";
+        }
+        
         if (hasStock) {
             sql.append("stock = ?");
         }
@@ -458,6 +479,11 @@ public class DatabaseManager {
     }
 
     public static String updateDistributorPrice(int distributorId, int itemId, double cost) {
+        // Validate non-negative cost
+        if (cost < 0) {
+            return "{\"success\": false, \"message\": \"Cost cannot be negative\"}";
+        }
+        
         String sql = "UPDATE distributor_prices SET cost = ? WHERE distributor = ? AND item = ?";
         try {
             PreparedStatement pstmt = conn.prepareStatement(sql);
@@ -517,6 +543,14 @@ public class DatabaseManager {
     // ================ SPECIAL METHODS ================
     @SuppressWarnings("unchecked")
     public static JSONObject getCheapestRestockPrice(int itemId, int quantity) {
+        // Validate positive quantity
+        if (quantity <= 0) {
+            JSONObject error = new JSONObject();
+            error.put("success", false);
+            error.put("message", "Quantity must be greater than 0");
+            return error;
+        }
+        
         String sql = "SELECT d.id, d.name, dp.cost, (dp.cost * ?) as total_cost " +
                     "FROM distributors d " +
                     "JOIN distributor_prices dp ON d.id = dp.distributor " +
