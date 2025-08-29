@@ -5,7 +5,14 @@ import org.json.simple.JSONObject;
 
 import java.io.File;
 import java.sql.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -14,6 +21,11 @@ public class DatabaseManager {
     private static final String dbName = "challenge.db";
     private static String connectionString;
     private static Connection conn;
+    
+    // ================ STREAMING INFRASTRUCTURE ================
+    private static final List<Consumer<String>> streamListeners = new CopyOnWriteArrayList<>();
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private static volatile boolean streamingEnabled = false;
 
     static {
         File dbFile = new File(dbName);
@@ -289,11 +301,16 @@ public class DatabaseManager {
                     ResultSet rs = stmt.executeQuery("SELECT last_insert_rowid()");
                     if (rs.next()) {
                         int id = rs.getInt(1);
+                        
+                        // Broadcast the change
+                        broadcastChange("INSERT", "items", "Added item: " + name + " (ID: " + id + ")");
+                        
                         return "{\"success\": true, \"message\": \"Item added successfully\", \"id\": " + id + "}";
                     }
                 } catch (SQLException e) {
                     // If getting the ID fails, still return success since the insert worked
                     System.out.println("Warning: Could not get inserted ID: " + e.getMessage());
+                    broadcastChange("INSERT", "items", "Added item: " + name);
                     return "{\"success\": true, \"message\": \"Item added successfully\"}";
                 }
             }
@@ -340,6 +357,10 @@ public class DatabaseManager {
                 ResultSet lastIdRs = stmt.executeQuery("SELECT last_insert_rowid()");
                 if (lastIdRs.next()) {
                     int id = lastIdRs.getInt(1);
+                    
+                    // Broadcast the change
+                    broadcastChange("INSERT", "inventory", "Added inventory for item ID " + itemId + " (stock: " + stock + ", capacity: " + capacity + ")");
+                    
                     return "{\"success\": true, \"message\": \"Inventory item added successfully\", \"id\": " + id + "}";
                 }
             }
@@ -468,6 +489,12 @@ public class DatabaseManager {
             
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
+                // Broadcast the change
+                String updateDetails = "Updated inventory for item ID " + itemId;
+                if (hasStock) updateDetails += " (stock: " + stock + ")";
+                if (hasCapacity) updateDetails += " (capacity: " + capacity + ")";
+                broadcastChange("UPDATE", "inventory", updateDetails);
+                
                 return "{\"success\": true, \"message\": \"Inventory item updated successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Inventory item with ID " + itemId + " not found\"}";
@@ -512,6 +539,9 @@ public class DatabaseManager {
             
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
+                // Broadcast the change
+                broadcastChange("DELETE", "inventory", "Deleted inventory for item ID " + itemId);
+                
                 return "{\"success\": true, \"message\": \"Inventory item deleted successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Inventory item with ID " + itemId + " not found\"}";
@@ -805,6 +835,135 @@ public class DatabaseManager {
         } catch (SQLException e) {
             System.out.println("Error exporting table to CSV: " + e.getMessage());
             return null;
+        }
+    }
+
+    // ================ STREAMING METHODS ================
+    
+    /**
+     * Subscribe to database updates via Server-Sent Events
+     * @param listener Consumer that receives JSON update notifications
+     */
+    public static void addStreamListener(Consumer<String> listener) {
+        streamListeners.add(listener);
+        startStreamingIfNeeded();
+    }
+    
+    /**
+     * Unsubscribe from database updates
+     * @param listener The listener to remove
+     */
+    public static void removeStreamListener(Consumer<String> listener) {
+        streamListeners.remove(listener);
+        if (streamListeners.isEmpty()) {
+            stopStreaming();
+        }
+    }
+    
+    /**
+     * Start streaming database changes if listeners exist
+     */
+    private static void startStreamingIfNeeded() {
+        if (!streamingEnabled && !streamListeners.isEmpty()) {
+            streamingEnabled = true;
+            // Poll database every 2 seconds for changes
+            scheduler.scheduleAtFixedRate(DatabaseManager::pollForChanges, 0, 2, TimeUnit.SECONDS);
+            System.out.println("Database streaming started");
+        }
+    }
+    
+    /**
+     * Stop streaming database changes
+     */
+    private static void stopStreaming() {
+        streamingEnabled = false;
+        System.out.println("Database streaming stopped");
+    }
+    
+    /**
+     * Poll database for changes and notify listeners
+     */
+    @SuppressWarnings("unchecked")
+    private static void pollForChanges() {
+        if (!streamingEnabled || streamListeners.isEmpty()) {
+            return;
+        }
+        
+        try {
+            // Get current counts for each table
+            JSONObject update = new JSONObject();
+            update.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+            update.put("type", "database_update");
+            
+            JSONObject tableCounts = new JSONObject();
+            
+            // Get row counts for each table
+            String[] tables = {"items", "inventory", "distributors", "distributor_prices"};
+            for (String table : tables) {
+                String sql = "SELECT COUNT(*) as count FROM " + table;
+                try (PreparedStatement stmt = conn.prepareStatement(sql);
+                     ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        tableCounts.put(table + "_count", rs.getInt("count"));
+                    }
+                }
+            }
+            
+            // Get recent low stock items
+            JSONArray lowStock = getLowStockItems();
+            tableCounts.put("low_stock_items", lowStock.size());
+            
+            // Get out of stock items
+            JSONArray outOfStock = getOutOfStockItems();
+            tableCounts.put("out_of_stock_items", outOfStock.size());
+            
+            // Get overstocked items
+            JSONArray overstocked = getOverstockedItems();
+            tableCounts.put("overstocked_items", overstocked.size());
+            
+            update.put("data", tableCounts);
+            
+            // Notify all listeners
+            String updateJson = update.toJSONString();
+            for (Consumer<String> listener : streamListeners) {
+                try {
+                    listener.accept(updateJson);
+                } catch (Exception e) {
+                    System.out.println("Error notifying stream listener: " + e.getMessage());
+                }
+            }
+            
+        } catch (SQLException e) {
+            System.out.println("Error polling for database changes: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Broadcast a specific database change to all listeners
+     * @param changeType The type of change (INSERT, UPDATE, DELETE)
+     * @param tableName The table that was modified
+     * @param details Additional details about the change
+     */
+    @SuppressWarnings("unchecked")
+    public static void broadcastChange(String changeType, String tableName, String details) {
+        if (!streamingEnabled || streamListeners.isEmpty()) {
+            return;
+        }
+        
+        JSONObject changeNotification = new JSONObject();
+        changeNotification.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        changeNotification.put("type", "database_change");
+        changeNotification.put("change_type", changeType);
+        changeNotification.put("table", tableName);
+        changeNotification.put("details", details);
+        
+        String changeJson = changeNotification.toJSONString();
+        for (Consumer<String> listener : streamListeners) {
+            try {
+                listener.accept(changeJson);
+            } catch (Exception e) {
+                System.out.println("Error broadcasting change: " + e.getMessage());
+            }
         }
     }
 }

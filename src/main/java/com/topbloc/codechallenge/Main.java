@@ -280,5 +280,67 @@ public class Main {
             res.header("Content-Disposition", "attachment; filename=" + tableName + ".csv");
             return csvData;
         });
+
+        // ================ STREAMING ROUTES (SSE) ================
+        // Stream database updates using Server-Sent Events
+        get("/stream/updates", (req, res) -> {
+            // Set SSE headers
+            res.type("text/event-stream");
+            res.header("Cache-Control", "no-cache");
+            res.header("Connection", "keep-alive");
+            res.header("Access-Control-Allow-Origin", "*");
+            res.header("Access-Control-Allow-Headers", "Cache-Control");
+            
+            // Send initial connection message
+            res.raw().getWriter().write("event: connected\n");
+            res.raw().getWriter().write("data: {\"message\":\"Connected to database update stream\",\"timestamp\":\"" + 
+                java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME) + "\"}\n\n");
+            res.raw().getWriter().flush();
+            
+            // Create a listener for this client
+            java.util.function.Consumer<String> listener = (updateData) -> {
+                try {
+                    res.raw().getWriter().write("event: database_update\n");
+                    res.raw().getWriter().write("data: " + updateData + "\n\n");
+                    res.raw().getWriter().flush();
+                } catch (Exception e) {
+                    System.out.println("Error sending SSE update: " + e.getMessage());
+                }
+            };
+            
+            // Subscribe to database updates
+            DatabaseManager.addStreamListener(listener);
+            
+            // Keep connection alive and handle disconnection
+            try {
+                // Send periodic heartbeat to detect client disconnect
+                long startTime = System.currentTimeMillis();
+                while (true) {
+                    Thread.sleep(5000); // Wait 5 seconds
+                    
+                    // Send heartbeat
+                    res.raw().getWriter().write("data: {\"timestamp\":\"" + 
+                        java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME) + "\"}\n\n");
+                    res.raw().getWriter().flush();
+                    
+                    // Check if client is still connected (simple timeout after 5 minutes)
+                    if (System.currentTimeMillis() - startTime > 300000) {
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                System.out.println("SSE connection ended: " + e.getMessage());
+            } finally {
+                // Clean up listener when connection ends
+                DatabaseManager.removeStreamListener(listener);
+                try {
+                    res.raw().getWriter().close();
+                } catch (Exception e) {
+                    // Ignore close errors
+                }
+            }
+            
+            return "";
+        });
     }
 }

@@ -44,6 +44,8 @@ public class TestSuite {
         testPutEndpoints();
         testDeleteEndpoints();
         testSpecialEndpoints();
+        testCsvExportEndpoints();
+        testStreamingEndpoints();
         testEdgeCases();
         testSecurityAndValidation();
         
@@ -297,12 +299,58 @@ public class TestSuite {
         testEndpoint("GET /items/cheapest - Invalid item format", "GET", "/items/abc/cheapest?quantity=100", null, 400, "Invalid");
     }
 
+    // ================ CSV EXPORT ENDPOINTS ================
+    private static void testCsvExportEndpoints() {
+        printSection("CSV EXPORT ENDPOINTS");
+        
+        // GET /export/csv - Valid table names
+        testEndpoint("CSV Export - items table", "GET", "/export/csv?table=items", null, 200, "id,name");
+        testEndpoint("CSV Export - inventory table", "GET", "/export/csv?table=inventory", null, 200, "id,item,stock,capacity");
+        testEndpoint("CSV Export - distributors table", "GET", "/export/csv?table=distributors", null, 200, "id,name");
+        testEndpoint("CSV Export - distributor_prices table", "GET", "/export/csv?table=distributor_prices", null, 200, "id,distributor,item,cost");
+        
+        // Case insensitive table names
+        testEndpoint("CSV Export - case insensitive", "GET", "/export/csv?table=ITEMS", null, 200, "id,name");
+        testEndpoint("CSV Export - mixed case", "GET", "/export/csv?table=Inventory", null, 200, "id,item,stock,capacity");
+        
+        // Invalid table names
+        testEndpoint("CSV Export - invalid table", "GET", "/export/csv?table=invalid_table", null, 400, "Invalid table name");
+        testEndpoint("CSV Export - SQL injection attempt", "GET", "/export/csv?table=" + urlEncode("items; DROP TABLE items;"), null, 400, "Invalid table name");
+        
+        // Missing table parameter
+        testEndpoint("CSV Export - missing table param", "GET", "/export/csv", null, 400, "Table name is required");
+        testEndpoint("CSV Export - empty table param", "GET", "/export/csv?table=", null, 400, "Table name is required");
+        
+        // Special characters in table name
+        testEndpoint("CSV Export - special chars", "GET", "/export/csv?table=items%20test", null, 400, "Invalid table name");
+    }
+
+    // ================ STREAMING ENDPOINTS ================
+    private static void testStreamingEndpoints() {
+        printSection("STREAMING ENDPOINTS (SSE)");
+        
+        // Note: These tests are simplified since SSE requires persistent connections
+        // and the test framework is designed for request-response patterns
+        
+        // Test SSE endpoint accessibility (it should start responding)
+        testStreamingEndpoint("Streaming - Initial connection", "GET", "/stream/updates");
+        
+        // Test streaming headers and initial response
+        testStreamingHeaders("Streaming - Correct headers", "GET", "/stream/updates");
+        
+        System.out.println("Note: Full streaming tests require persistent connections and are best tested manually");
+        System.out.println("Use: curl -N 'http://localhost:4567/stream/updates' to test streaming manually");
+    }
+
     // ================ EDGE CASES ================
     private static void testEdgeCases() {
         printSection("EDGE CASES & BOUNDARY CONDITIONS");
         
-        // Test maximum integer values
-        testEndpoint("POST /inventory - Max int stock", "POST", "/inventory?itemId=1&stock=2147483647&capacity=100", null, 200, "already exists");
+        // First create an inventory item, then test max int
+        testEndpoint("POST /inventory - Setup for max int test", "POST", "/inventory?itemId=1&stock=100&capacity=200", null, 200, "success");
+        
+        // Test maximum integer values (should update existing)
+        testEndpoint("POST /inventory - Max int stock", "POST", "/inventory?itemId=1&stock=2147483647&capacity=100", null, 200, "success");
         
         // Test very large numbers
         testEndpoint("POST /distributors/items - Large cost", "POST", "/distributors/1/items?itemId=1&cost=999999.99", null, 200, "success");
@@ -472,6 +520,74 @@ public class TestSuite {
             return URLEncoder.encode(value, StandardCharsets.UTF_8.toString());
         } catch (Exception e) {
             return value;
+        }
+    }
+
+    // ================ STREAMING TEST HELPERS ================
+    private static void testStreamingEndpoint(String testName, String method, String endpoint) {
+        totalTests++;
+        try {
+            @SuppressWarnings("deprecation")
+            URL url = new URL(BASE_URL + endpoint);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod(method);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
+            
+            int responseCode = conn.getResponseCode();
+            String contentType = conn.getContentType();
+            
+            // For SSE, we expect 200 and text/event-stream content type
+            if (responseCode == 200 && contentType != null && contentType.contains("text/event-stream")) {
+                passedTests++;
+                System.out.println("PASS " + testName);
+            } else {
+                failedTests++;
+                System.out.println("FAIL " + testName + " - Expected SSE response, got: " + responseCode + " " + contentType);
+            }
+            
+            conn.disconnect();
+        } catch (Exception e) {
+            failedTests++;
+            System.out.println("FAIL " + testName + " - Error: " + e.getMessage());
+        }
+    }
+    
+    private static void testStreamingHeaders(String testName, String method, String endpoint) {
+        totalTests++;
+        try {
+            @SuppressWarnings("deprecation")
+            URL url = new URL(BASE_URL + endpoint);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod(method);
+            conn.setConnectTimeout(2000);
+            conn.setReadTimeout(2000);
+            
+            int responseCode = conn.getResponseCode();
+            String cacheControl = conn.getHeaderField("Cache-Control");
+            String accessControl = conn.getHeaderField("Access-Control-Allow-Origin");
+            String contentType = conn.getContentType();
+            
+            boolean headersOk = responseCode == 200 && 
+                               contentType != null && contentType.contains("text/event-stream") &&
+                               "no-cache".equals(cacheControl) &&
+                               "*".equals(accessControl);
+            
+            if (headersOk) {
+                passedTests++;
+                System.out.println("PASS " + testName);
+            } else {
+                failedTests++;
+                System.out.println("FAIL " + testName + " - Headers not correct");
+                System.out.println("   Content-Type: " + contentType);
+                System.out.println("   Cache-Control: " + cacheControl);
+                System.out.println("   Access-Control-Allow-Origin: " + accessControl);
+            }
+            
+            conn.disconnect();
+        } catch (Exception e) {
+            failedTests++;
+            System.out.println("FAIL " + testName + " - Error: " + e.getMessage());
         }
     }
 
