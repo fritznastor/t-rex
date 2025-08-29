@@ -260,5 +260,25 @@ public class Main {
                 return "{\"error\": \"Invalid parameters. quantity must be an integer\"}";
             }
         });
+
+        // Export any table to CSV format
+        get("/export/csv", (req, res) -> {
+            String tableName = req.queryParams("table");
+            if (tableName == null || tableName.trim().isEmpty()) {
+                res.status(400);
+                return "{\"error\": \"Table name is required. Use ?table=tablename\"}";
+            }
+            
+            String csvData = DatabaseManager.exportTableToCsv(tableName.trim());
+            if (csvData == null) {
+                res.status(400);
+                return "{\"error\": \"Invalid table name. Valid tables: items, inventory, distributors, distributor_prices\"}";
+            }
+            
+            res.status(200);
+            res.type("text/csv");
+            res.header("Content-Disposition", "attachment; filename=" + tableName + ".csv");
+            return csvData;
+        });
     }
 }

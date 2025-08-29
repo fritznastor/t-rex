@@ -736,4 +736,75 @@ public class DatabaseManager {
             return "{\"success\": false, \"message\": \"Database error: " + e.getMessage() + "\"}";
         }
     }
+
+    // ================ CSV EXPORT METHOD ================
+    
+    public static String exportTableToCsv(String tableName) {
+        // List of valid table names for security
+        String[] validTables = {"items", "inventory", "distributors", "distributor_prices"};
+        boolean isValidTable = false;
+        
+        for (String validTable : validTables) {
+            if (validTable.equalsIgnoreCase(tableName)) {
+                tableName = validTable; // Use the exact case
+                isValidTable = true;
+                break;
+            }
+        }
+        
+        if (!isValidTable) {
+            return null; // Invalid table name
+        }
+        
+        try {
+            // First, get the table structure to build column headers
+            String sql = "SELECT * FROM " + tableName + " LIMIT 1";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            ResultSet rs = stmt.executeQuery();
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
+            
+            // Build CSV content
+            StringBuilder csvContent = new StringBuilder();
+            
+            // Add header row
+            for (int i = 1; i <= columnCount; i++) {
+                csvContent.append(metaData.getColumnName(i));
+                if (i < columnCount) {
+                    csvContent.append(",");
+                }
+            }
+            csvContent.append("\n");
+            
+            // Get all data from the table
+            String dataSql = "SELECT * FROM " + tableName;
+            PreparedStatement dataStmt = conn.prepareStatement(dataSql);
+            ResultSet dataRs = dataStmt.executeQuery();
+            
+            // Add data rows
+            while (dataRs.next()) {
+                for (int i = 1; i <= columnCount; i++) {
+                    String value = dataRs.getString(i);
+                    if (value == null) {
+                        value = "";
+                    }
+                    // Escape commas and quotes in CSV
+                    if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+                        value = "\"" + value.replace("\"", "\"\"") + "\"";
+                    }
+                    csvContent.append(value);
+                    if (i < columnCount) {
+                        csvContent.append(",");
+                    }
+                }
+                csvContent.append("\n");
+            }
+            
+            return csvContent.toString();
+            
+        } catch (SQLException e) {
+            System.out.println("Error exporting table to CSV: " + e.getMessage());
+            return null;
+        }
+    }
 }
