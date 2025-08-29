@@ -1,0 +1,37 @@
+# Docker ignore file for TopBloc Backend Challenge
+# Ignore build artifacts
+target/
+*.class
+*.jar
+*.war
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore git
+.git/
+.gitignore
+
+# Ignore logs
+*.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+
+# Ignore documentation (optional)
+*.md
+!README.md
+
+# Ignore test files (optional - remove if you want tests in container)
+TEST_SUITE_*.md
+test.sh
+run-tests.sh

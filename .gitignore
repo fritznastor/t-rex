@@ -34,3 +34,9 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Docker ###
+# Don't ignore Dockerfile and docker-compose.yml as they're part of the project
+# But ignore any local Docker volumes or temporary files
+.docker/
+docker-data/

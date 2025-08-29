@@ -586,4 +586,154 @@ public class DatabaseManager {
             return error;
         }
     }
+
+    // ================ MISSING CRUD METHODS ================
+    
+    public static String getItemById(int itemId) {
+        try {
+            String sql = "SELECT id, name FROM items WHERE id = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, itemId);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                JSONObject item = new JSONObject();
+                item.put("id", rs.getInt("id"));
+                item.put("name", rs.getString("name"));
+                return item.toJSONString();
+            } else {
+                return "{\"error\": \"Item with ID " + itemId + " not found\"}";
+            }
+        } catch (SQLException e) {
+            return "{\"error\": \"Database error: " + e.getMessage() + "\"}";
+        }
+    }
+    
+    public static String updateItem(int itemId, String name) {
+        try {
+            // Check if item exists
+            String checkSql = "SELECT id FROM items WHERE id = ?";
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setInt(1, itemId);
+            ResultSet rs = checkStmt.executeQuery();
+            
+            if (!rs.next()) {
+                return "{\"success\": false, \"message\": \"Item with ID " + itemId + " does not exist\"}";
+            }
+            
+            // Check if name already exists for a different item
+            String duplicateSql = "SELECT id FROM items WHERE name = ? AND id != ?";
+            PreparedStatement duplicateStmt = conn.prepareStatement(duplicateSql);
+            duplicateStmt.setString(1, name);
+            duplicateStmt.setInt(2, itemId);
+            ResultSet duplicateRs = duplicateStmt.executeQuery();
+            
+            if (duplicateRs.next()) {
+                return "{\"success\": false, \"message\": \"Item with this name already exists\"}";
+            }
+            
+            // Update the item
+            String updateSql = "UPDATE items SET name = ? WHERE id = ?";
+            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+            updateStmt.setString(1, name);
+            updateStmt.setInt(2, itemId);
+            
+            int rowsAffected = updateStmt.executeUpdate();
+            if (rowsAffected > 0) {
+                return "{\"success\": true, \"message\": \"Item updated successfully\"}";
+            } else {
+                return "{\"success\": false, \"message\": \"Failed to update item\"}";
+            }
+        } catch (SQLException e) {
+            return "{\"success\": false, \"message\": \"Database error: " + e.getMessage() + "\"}";
+        }
+    }
+    
+    public static String deleteItem(int itemId) {
+        try {
+            // Check if item exists
+            String checkSql = "SELECT id FROM items WHERE id = ?";
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setInt(1, itemId);
+            ResultSet rs = checkStmt.executeQuery();
+            
+            if (!rs.next()) {
+                return "{\"success\": false, \"message\": \"Item with ID " + itemId + " does not exist\"}";
+            }
+            
+            // Delete the item (cascade will handle related records)
+            String deleteSql = "DELETE FROM items WHERE id = ?";
+            PreparedStatement deleteStmt = conn.prepareStatement(deleteSql);
+            deleteStmt.setInt(1, itemId);
+            
+            int rowsAffected = deleteStmt.executeUpdate();
+            if (rowsAffected > 0) {
+                return "{\"success\": true, \"message\": \"Item deleted successfully\"}";
+            } else {
+                return "{\"success\": false, \"message\": \"Failed to delete item\"}";
+            }
+        } catch (SQLException e) {
+            return "{\"success\": false, \"message\": \"Database error: " + e.getMessage() + "\"}";
+        }
+    }
+    
+    public static String getDistributorById(int distributorId) {
+        try {
+            String sql = "SELECT id, name FROM distributors WHERE id = ?";
+            PreparedStatement stmt = conn.prepareStatement(sql);
+            stmt.setInt(1, distributorId);
+            ResultSet rs = stmt.executeQuery();
+            
+            if (rs.next()) {
+                JSONObject distributor = new JSONObject();
+                distributor.put("id", rs.getInt("id"));
+                distributor.put("name", rs.getString("name"));
+                return distributor.toJSONString();
+            } else {
+                return "{\"error\": \"Distributor with ID " + distributorId + " not found\"}";
+            }
+        } catch (SQLException e) {
+            return "{\"error\": \"Database error: " + e.getMessage() + "\"}";
+        }
+    }
+    
+    public static String updateDistributor(int distributorId, String name) {
+        try {
+            // Check if distributor exists
+            String checkSql = "SELECT id FROM distributors WHERE id = ?";
+            PreparedStatement checkStmt = conn.prepareStatement(checkSql);
+            checkStmt.setInt(1, distributorId);
+            ResultSet rs = checkStmt.executeQuery();
+            
+            if (!rs.next()) {
+                return "{\"success\": false, \"message\": \"Distributor with ID " + distributorId + " does not exist\"}";
+            }
+            
+            // Check if name already exists for a different distributor
+            String duplicateSql = "SELECT id FROM distributors WHERE name = ? AND id != ?";
+            PreparedStatement duplicateStmt = conn.prepareStatement(duplicateSql);
+            duplicateStmt.setString(1, name);
+            duplicateStmt.setInt(2, distributorId);
+            ResultSet duplicateRs = duplicateStmt.executeQuery();
+            
+            if (duplicateRs.next()) {
+                return "{\"success\": false, \"message\": \"Distributor with this name already exists\"}";
+            }
+            
+            // Update the distributor
+            String updateSql = "UPDATE distributors SET name = ? WHERE id = ?";
+            PreparedStatement updateStmt = conn.prepareStatement(updateSql);
+            updateStmt.setString(1, name);
+            updateStmt.setInt(2, distributorId);
+            
+            int rowsAffected = updateStmt.executeUpdate();
+            if (rowsAffected > 0) {
+                return "{\"success\": true, \"message\": \"Distributor updated successfully\"}";
+            } else {
+                return "{\"success\": false, \"message\": \"Failed to update distributor\"}";
+            }
+        } catch (SQLException e) {
+            return "{\"success\": false, \"message\": \"Database error: " + e.getMessage() + "\"}";
+        }
+    }
 }
