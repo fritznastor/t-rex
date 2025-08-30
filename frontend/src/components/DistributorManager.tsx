@@ -28,8 +28,10 @@ import {
   Refresh,
   Store,
   Edit,
+  Search,
+  Clear,
 } from '@mui/icons-material';
-import { apiService, Distributor, DistributorPrice, Item } from '../services/api';
+import { apiService, Distributor, DistributorItem, Item } from '../services/api';
 
 interface DistributorFormData {
   name: string;
@@ -43,7 +45,7 @@ interface PriceFormData {
 
 const DistributorManager: React.FC = () => {
   const [distributors, setDistributors] = useState<Distributor[]>([]);
-  const [distributorPrices, setDistributorPrices] = useState<DistributorPrice[]>([]);
+  const [distributorPrices, setDistributorPrices] = useState<DistributorItem[]>([]);
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -51,7 +53,7 @@ const DistributorManager: React.FC = () => {
   const [priceDialogOpen, setPriceDialogOpen] = useState(false);
   const [editPriceDialogOpen, setEditPriceDialogOpen] = useState(false);
   const [selectedDistributor, setSelectedDistributor] = useState<number | null>(null);
-  const [selectedPrice, setSelectedPrice] = useState<DistributorPrice | null>(null);
+  const [selectedPrice, setSelectedPrice] = useState<DistributorItem | null>(null);
   const [distributorFormData, setDistributorFormData] = useState<DistributorFormData>({
     name: '',
   });
@@ -60,6 +62,10 @@ const DistributorManager: React.FC = () => {
     itemId: '',
     cost: '',
   });
+  const [searchId, setSearchId] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<DistributorItem[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchDistributors();
@@ -131,11 +137,11 @@ const DistributorManager: React.FC = () => {
   };
 
   const handleUpdatePrice = async () => {
-    if (!selectedPrice) return;
+    if (!selectedPrice || !selectedDistributor) return;
     try {
       await apiService.updateDistributorPrice(
-        selectedPrice.distributor_id,
-        selectedPrice.item_id,
+        selectedDistributor,
+        selectedPrice.id,
         parseFloat(priceFormData.cost)
       );
       setSuccess('Price updated successfully!');
@@ -150,11 +156,22 @@ const DistributorManager: React.FC = () => {
     }
   };
 
-  const openEditPriceDialog = (price: DistributorPrice) => {
+    const handleDeletePrice = async (price: DistributorItem) => {
+    if (!selectedDistributor) return;
+    try {
+      await apiService.deleteDistributorPrice(selectedDistributor, price.id);
+      setSuccess('Price deleted successfully!');
+      fetchDistributorPrices(selectedDistributor);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete price');
+    }
+  };
+
+  const openEditPriceDialog = (price: DistributorItem) => {
     setSelectedPrice(price);
     setPriceFormData({
-      distributorId: price.distributor_id.toString(),
-      itemId: price.item_id.toString(),
+      distributorId: selectedDistributor?.toString() || '',
+      itemId: price.id.toString(),
       cost: price.cost.toString(),
     });
     setEditPriceDialogOpen(true);
@@ -172,6 +189,36 @@ const DistributorManager: React.FC = () => {
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to delete distributor');
     }
+  };
+
+  const handleSearchDistributor = async () => {
+    if (!searchId.trim()) {
+      setSearchError('Please enter a distributor ID');
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const response = await apiService.getDistributorItems(parseInt(searchId));
+      const results = response.data;
+      setSearchResults(results);
+      if (results.length === 0) {
+        setSearchError('No items found for this distributor');
+      }
+    } catch (err: any) {
+      setSearchError(err.response?.data?.error || 'Failed to search distributor items');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchId('');
+    setSearchResults([]);
+    setSearchError(null);
   };
 
   return (
@@ -210,6 +257,83 @@ const DistributorManager: React.FC = () => {
           {success}
         </Alert>
       )}
+
+      {/* Search Section */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Search Distributor Items
+          </Typography>
+          <Box display="flex" gap={2} alignItems="flex-start" mb={2}>
+            <TextField
+              label="Distributor ID"
+              value={searchId}
+              onChange={(e) => setSearchId(e.target.value)}
+              size="small"
+              type="number"
+              sx={{ width: 200 }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearchDistributor();
+                }
+              }}
+            />
+            <Button
+              variant="contained"
+              startIcon={<Search />}
+              onClick={handleSearchDistributor}
+              disabled={searchLoading}
+              size="small"
+            >
+              {searchLoading ? 'Searching...' : 'Search'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Clear />}
+              onClick={clearSearch}
+              size="small"
+            >
+              Clear
+            </Button>
+          </Box>
+
+          {searchError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {searchError}
+            </Alert>
+          )}
+
+          {searchResults.length > 0 && (
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Items Distributed (Found {searchResults.length} items)
+                </Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Item ID</TableCell>
+                        <TableCell>Item Name</TableCell>
+                        <TableCell>Cost</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {searchResults.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>{item.id}</TableCell>
+                          <TableCell>{item.name}</TableCell>
+                          <TableCell>${item.cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
 
       <Stack direction="row" spacing={3} sx={{ mb: 3 }}>
         <Card sx={{ flex: 1 }}>
@@ -320,7 +444,7 @@ const DistributorManager: React.FC = () => {
                 <TableBody>
                   {distributorPrices.map((price, index) => (
                     <TableRow key={index}>
-                      <TableCell>{price.item_name}</TableCell>
+                      <TableCell>{price.name}</TableCell>
                       <TableCell align="right">${price.cost.toFixed(2)}</TableCell>
                       <TableCell align="center">
                         <Tooltip title="Edit Price">
@@ -329,6 +453,15 @@ const DistributorManager: React.FC = () => {
                             onClick={() => openEditPriceDialog(price)}
                           >
                             <Edit />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete Price">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeletePrice(price)}
+                            color="error"
+                          >
+                            <Delete />
                           </IconButton>
                         </Tooltip>
                       </TableCell>
@@ -430,14 +563,14 @@ const DistributorManager: React.FC = () => {
         <DialogContent>
           <TextField
             label="Distributor"
-            value={distributors.find(d => d.id === selectedPrice?.distributor_id)?.name || ''}
+            value={distributors.find(d => d.id === selectedDistributor)?.name || ''}
             fullWidth
             margin="normal"
             disabled
           />
           <TextField
             label="Item"
-            value={selectedPrice?.item_name || ''}
+            value={selectedPrice?.name || ''}
             fullWidth
             margin="normal"
             disabled

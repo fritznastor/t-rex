@@ -284,6 +284,26 @@ public class Main {
             }
         });
 
+        // Delete an item from a distributor's catalog
+        delete("/distributors/:distributorId/items/:itemId", (req, res) -> {
+            
+            res.header("Content-Type", "application/json");
+            try {
+                int distributorId = Integer.parseInt(req.params(":distributorId"));
+                int itemId = Integer.parseInt(req.params(":itemId"));
+                String result = DatabaseManager.deleteDistributorPrice(distributorId, itemId);
+                if (result.contains("\"success\": false")) {
+                    res.status(400);
+                } else {
+                    res.status(200);
+                }
+                return result;
+            } catch (NumberFormatException e) {
+                res.status(400);
+                return "{\"error\": \"Invalid parameters. distributorId and itemId must be integers\"}";
+            }
+        });
+
         // ================ SPECIAL ROUTES ================
         // Get the cheapest price for restocking an item at a given quantity
         get("/items/:id/cheapest", (req, res) -> {

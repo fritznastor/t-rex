@@ -14,8 +14,7 @@ export interface Item {
 }
 
 export interface InventoryItem {
-  id: number;
-  item_id: number;
+  id: number;        // This is the item ID, not inventory ID
   name: string;
   stock: number;
   capacity: number;
@@ -34,8 +33,30 @@ export interface DistributorPrice {
   cost: number;
 }
 
+// Additional interfaces for actual API responses
+export interface DistributorItem {
+  id: number;
+  name: string;
+  cost: number;
+}
+
+export interface ItemDistributor {
+  id: number;
+  name: string;
+  cost: number;
+}
+
+export interface ItemDistributor {
+  id: number;
+  name: string;
+  cost: number;
+}
+
 // API functions
 export const apiService = {
+  // Basic endpoints
+  getVersion: () => api.get<string>('/version'),
+  
   // Items
   getItems: () => api.get<Item[]>('/items'),
   addItem: (name: string) => api.post('/items', null, { params: { name } }),
@@ -58,14 +79,16 @@ export const apiService = {
 
   // Distributors
   getDistributors: () => api.get<Distributor[]>('/distributors'),
-  getDistributorItems: (distributorId: number) => api.get<DistributorPrice[]>(`/distributors/${distributorId}/items`),
-  getItemDistributors: (itemId: number) => api.get<DistributorPrice[]>(`/items/${itemId}/distributors`),
+  getDistributorItems: (distributorId: number) => api.get<DistributorItem[]>(`/distributors/${distributorId}/items`),
+  getItemDistributors: (itemId: number) => api.get<ItemDistributor[]>(`/items/${itemId}/distributors`),
   addDistributor: (name: string) => api.post('/distributors', null, { params: { name } }),
   addDistributorPrice: (distributorId: number, itemId: number, cost: number) => 
     api.post(`/distributors/${distributorId}/items`, null, { params: { itemId, cost } }),
   updateDistributorPrice: (distributorId: number, itemId: number, cost: number) => 
     api.put(`/distributors/${distributorId}/items/${itemId}`, null, { params: { cost } }),
   deleteDistributor: (id: number) => api.delete(`/distributors/${id}`),
+  deleteDistributorPrice: (distributorId: number, itemId: number) => 
+    api.delete(`/distributors/${distributorId}/items/${itemId}`),
 
   // Special
   getCheapestRestock: (itemId: number, quantity: number) => 
@@ -74,7 +97,4 @@ export const apiService = {
   // Export
   exportTableToCsv: (tableName: string) => 
     api.get('/export/csv', { params: { table: tableName }, responseType: 'blob' }),
-
-  // Reset
-  resetDatabase: () => api.get('/reset'),
 };

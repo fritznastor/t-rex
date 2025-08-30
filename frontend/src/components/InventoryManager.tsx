@@ -31,6 +31,8 @@ import {
   Warning,
   CheckCircle,
   Error,
+  Search,
+  Clear,
 } from '@mui/icons-material';
 import { apiService, InventoryItem, Item } from '../services/api';
 
@@ -49,6 +51,8 @@ const InventoryManager: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [searchId, setSearchId] = useState<string>('');
+  const [searchResult, setSearchResult] = useState<InventoryItem | null>(null);
   const [formData, setFormData] = useState<InventoryFormData>({
     itemId: '',
     stock: '',
@@ -113,7 +117,7 @@ const InventoryManager: React.FC = () => {
     if (!selectedItem) return;
     try {
       await apiService.updateInventoryItem(
-        selectedItem.id,
+        selectedItem.id,  // Use the item ID directly
         formData.stock ? parseInt(formData.stock) : undefined,
         formData.capacity ? parseInt(formData.capacity) : undefined
       );
@@ -140,11 +144,42 @@ const InventoryManager: React.FC = () => {
   const openEditDialog = (item: InventoryItem) => {
     setSelectedItem(item);
     setFormData({
-      itemId: item.item_id.toString(),
+      itemId: item.id.toString(),  // Use item.id directly (this is the item ID)
       stock: item.stock.toString(),
       capacity: item.capacity.toString(),
     });
     setEditDialogOpen(true);
+  };
+
+  const searchItemById = async () => {
+    if (!searchId.trim()) {
+      setError('Please enter an item ID');
+      return;
+    }
+    
+    try {
+      const response = await apiService.getInventoryById(parseInt(searchId));
+      if (response.data && Array.isArray(response.data) && response.data.length > 0) {
+        setSearchResult(response.data[0]);
+        setError(null);
+      } else {
+        setSearchResult(null);
+        setError('No item found with that ID');
+      }
+    } catch (err: any) {
+      setSearchResult(null);
+      if (err.response?.status === 404) {
+        setError('Item not found');
+      } else {
+        setError('Failed to search for item');
+      }
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchId('');
+    setSearchResult(null);
+    setError(null);
   };
 
   const getStockStatus = (item: InventoryItem) => {
@@ -272,6 +307,70 @@ const InventoryManager: React.FC = () => {
             Overstocked
           </Button>
         </Stack>
+      </Box>
+
+      {/* Search Item by ID */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Search Item by ID
+        </Typography>
+        <Stack direction="row" spacing={2} alignItems="flex-start">
+          <TextField
+            label="Item ID"
+            type="number"
+            value={searchId}
+            onChange={(e) => setSearchId(e.target.value)}
+            size="small"
+            sx={{ width: 200 }}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                searchItemById();
+              }
+            }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<Search />}
+            onClick={searchItemById}
+            disabled={!searchId.trim()}
+          >
+            Search
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Clear />}
+            onClick={clearSearch}
+            disabled={!searchResult && !searchId}
+          >
+            Clear
+          </Button>
+        </Stack>
+        
+        {/* Search Result */}
+        {searchResult && (
+          <Box sx={{ mt: 2 }}>
+            <Card sx={{ maxWidth: 600 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Item Details
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography><strong>ID:</strong> {searchResult.id}</Typography>
+                  <Typography><strong>Name:</strong> {searchResult.name}</Typography>
+                  <Typography><strong>Amount in Stock:</strong> {searchResult.stock}</Typography>
+                  <Typography><strong>Total Capacity:</strong> {searchResult.capacity}</Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <Chip
+                      label={getStockStatus(searchResult).label}
+                      color={getStockStatus(searchResult).color}
+                      size="small"
+                    />
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Box>
+        )}
       </Box>
 
       <TableContainer component={Paper}>

@@ -8,12 +8,10 @@ import {
   Card,
   CardContent,
   Stack,
-  Chip,
 } from '@mui/material';
 import {
   Download,
   GetApp,
-  TableChart,
 } from '@mui/icons-material';
 import { apiService } from '../services/api';
 
@@ -67,16 +65,6 @@ const ExportManager: React.FC = () => {
       return;
     }
     await handleExport(exportFormData.tableName.trim());
-  };
-
-  const resetDatabase = async () => {
-    try {
-      await apiService.resetDatabase();
-      setSuccess('Database reset successfully!');
-      setError(null);
-    } catch (err: any) {
-      setError('Failed to reset database');
-    }
   };
 
   return (
@@ -178,36 +166,6 @@ const ExportManager: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Database Utilities Section */}
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Database Utilities
-          </Typography>
-          <Typography color="textSecondary" sx={{ mb: 3 }}>
-            Database management and maintenance tools
-          </Typography>
-          
-          <Box>
-            <Button
-              variant="outlined"
-              color="warning"
-              onClick={resetDatabase}
-              startIcon={<TableChart />}
-              sx={{ mr: 2 }}
-            >
-              Reset Database
-            </Button>
-            <Chip 
-              label="Warning: This will delete all data" 
-              color="warning" 
-              variant="outlined" 
-              size="small"
-            />
-          </Box>
-        </CardContent>
-      </Card>
-
       {/* Info Section */}
       <Card sx={{ mt: 3, backgroundColor: 'grey.50' }}>
         <CardContent>
@@ -220,8 +178,6 @@ const ExportManager: React.FC = () => {
             • Valid table names: items, inventory, distributors, distributor_prices
             <br />
             • Custom table export allows you to export any existing table in the database
-            <br />
-            • Reset database will restore the database to its initial state with sample data
           </Typography>
         </CardContent>
       </Card>

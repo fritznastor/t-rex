@@ -540,6 +540,25 @@ public class DatabaseManager {
         }
     }
 
+    public static String deleteDistributorPrice(int distributorId, int itemId) {
+        String sql = "DELETE FROM distributor_prices WHERE distributor = ? AND item = ?";
+        try {
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setInt(1, distributorId);
+            pstmt.setInt(2, itemId);
+            
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                return "{\"success\": true, \"message\": \"Distributor price deleted successfully\"}";
+            } else {
+                return "{\"success\": false, \"message\": \"Distributor price not found for distributor ID " + distributorId + " and item ID " + itemId + "\"}";
+            }
+        } catch (SQLException e) {
+            System.out.println(e.getMessage());
+            return "{\"success\": false, \"message\": \"Database error: " + e.getMessage() + "\"}";
+        }
+    }
+
     // ================ SPECIAL METHODS ================
     @SuppressWarnings("unchecked")
     public static JSONObject getCheapestRestockPrice(int itemId, int quantity) {

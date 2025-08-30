@@ -25,8 +25,9 @@ import {
   Refresh,
   ShoppingCart,
   Search,
+  Clear,
 } from '@mui/icons-material';
-import { apiService, Item, DistributorPrice } from '../services/api';
+import { apiService, Item, ItemDistributor } from '../services/api';
 
 interface ItemFormData {
   name: string;
@@ -39,7 +40,7 @@ interface CheapestFormData {
 
 const ItemManager: React.FC = () => {
   const [items, setItems] = useState<Item[]>([]);
-  const [itemDistributors, setItemDistributors] = useState<DistributorPrice[]>([]);
+  const [itemDistributors, setItemDistributors] = useState<ItemDistributor[]>([]);
   const [cheapestResult, setCheapestResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -53,6 +54,10 @@ const ItemManager: React.FC = () => {
     itemId: '',
     quantity: '',
   });
+  const [searchId, setSearchId] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResults, setSearchResults] = useState<ItemDistributor[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchItems();
@@ -101,11 +106,56 @@ const ItemManager: React.FC = () => {
         parseInt(cheapestFormData.itemId),
         parseInt(cheapestFormData.quantity)
       );
-      setCheapestResult(response.data);
+      
+      // Get the item name from the items list
+      const selectedItem = items.find(item => item.id === parseInt(cheapestFormData.itemId));
+      const itemName = selectedItem ? selectedItem.name : `Item ${cheapestFormData.itemId}`;
+      
+      // Transform the response to match frontend expectations
+      const transformedResult = {
+        ...response.data,
+        itemName: itemName,
+        distributorName: response.data.distributor_name,
+        unitCost: response.data.unit_cost,
+        totalCost: response.data.total_cost
+      };
+      
+      setCheapestResult(transformedResult);
       setSuccess('Found cheapest restock option!');
+      setCheapestDialogOpen(false);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to find cheapest restock');
     }
+  };
+
+  const handleSearchItem = async () => {
+    if (!searchId.trim()) {
+      setSearchError('Please enter an item ID');
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const response = await apiService.getItemDistributors(parseInt(searchId));
+      const results = response.data;
+      setSearchResults(results);
+      if (results.length === 0) {
+        setSearchError('No distributors found for this item');
+      }
+    } catch (err: any) {
+      setSearchError(err.response?.data?.error || 'Failed to search item distributors');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchId('');
+    setSearchResults([]);
+    setSearchError(null);
   };
 
   return (
@@ -152,6 +202,109 @@ const ItemManager: React.FC = () => {
           {success}
         </Alert>
       )}
+
+      {/* Cheapest Restock Option Display */}
+      {cheapestResult && (
+        <Card sx={{ mb: 3, backgroundColor: '#e3f2fd' }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom color="primary">
+              Cheapest Restock Option
+            </Typography>
+            <Typography>
+              <strong>Item:</strong> {cheapestResult.itemName}
+            </Typography>
+            <Typography>
+              <strong>Quantity:</strong> {cheapestResult.quantity}
+            </Typography>
+            <Typography>
+              <strong>Distributor:</strong> {cheapestResult.distributorName}
+            </Typography>
+            <Typography>
+              <strong>Unit Cost:</strong> ${cheapestResult.unitCost.toFixed(2)}
+            </Typography>
+            <Typography>
+              <strong>Total Cost:</strong> ${cheapestResult.totalCost.toFixed(2)}
+            </Typography>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Search Section */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Search Item Distributors
+          </Typography>
+          <Box display="flex" gap={2} alignItems="flex-start" mb={2}>
+            <TextField
+              label="Item ID"
+              value={searchId}
+              onChange={(e) => setSearchId(e.target.value)}
+              size="small"
+              type="number"
+              sx={{ width: 200 }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleSearchItem();
+                }
+              }}
+            />
+            <Button
+              variant="contained"
+              startIcon={<Search />}
+              onClick={handleSearchItem}
+              disabled={searchLoading}
+              size="small"
+            >
+              {searchLoading ? 'Searching...' : 'Search'}
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<Clear />}
+              onClick={clearSearch}
+              size="small"
+            >
+              Clear
+            </Button>
+          </Box>
+
+          {searchError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {searchError}
+            </Alert>
+          )}
+
+          {searchResults.length > 0 && (
+            <Card variant="outlined">
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  All Offerings from Distributors (Found {searchResults.length} distributors)
+                </Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Distributor ID</TableCell>
+                        <TableCell>Distributor Name</TableCell>
+                        <TableCell>Cost</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {searchResults.map((distributor) => (
+                        <TableRow key={distributor.id}>
+                          <TableCell>{distributor.id}</TableCell>
+                          <TableCell>{distributor.name}</TableCell>
+                          <TableCell>${distributor.cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
 
       <Stack direction="row" spacing={3} sx={{ mb: 3 }}>
         <Card sx={{ flex: 1 }}>
@@ -228,7 +381,7 @@ const ItemManager: React.FC = () => {
                 <TableBody>
                   {itemDistributors.map((distributor, index) => (
                     <TableRow key={index}>
-                      <TableCell>{distributor.distributor_name}</TableCell>
+                      <TableCell>{distributor.name}</TableCell>
                       <TableCell align="right">${distributor.cost.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
@@ -245,32 +398,6 @@ const ItemManager: React.FC = () => {
           )}
         </Box>
       </Stack>
-
-      {/* Cheapest Result Card */}
-      {cheapestResult && (
-        <Card sx={{ mt: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              Cheapest Restock Option
-            </Typography>
-            <Typography>
-              <strong>Item:</strong> {cheapestResult.item_name || cheapestResult.itemName}
-            </Typography>
-            <Typography>
-              <strong>Quantity:</strong> {cheapestResult.quantity}
-            </Typography>
-            <Typography>
-              <strong>Best Distributor:</strong> {cheapestResult.distributor_name || cheapestResult.distributorName}
-            </Typography>
-            <Typography>
-              <strong>Unit Cost:</strong> ${cheapestResult.unit_cost || cheapestResult.unitCost}
-            </Typography>
-            <Typography>
-              <strong>Total Cost:</strong> ${cheapestResult.total_cost || cheapestResult.totalCost}
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Add Item Dialog */}
       <Dialog open={itemDialogOpen} onClose={() => setItemDialogOpen(false)} maxWidth="sm" fullWidth>
