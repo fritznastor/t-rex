@@ -1,10 +1,8 @@
-version: '3.8'
-
 services:
-  # Main application service
-  topbloc-api:
+  # Backend API service
+  backend:
     build: .
-    container_name: topbloc-backend-challenge
+    container_name: topbloc-backend
     ports:
       - "4567:4567"
     environment:
@@ -16,11 +14,33 @@ services:
       - ./src:/app/src
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4567/version"]
+      test: ["CMD", "curl", "-f", "http://localhost:4567/inventory"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - topbloc-network
+
+  # Frontend React service
+  frontend:
+    build: ./frontend
+    container_name: topbloc-frontend
+    ports:
+      - "3000:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:4567
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    networks:
+      - topbloc-network
 
   # Optional: Add a lightweight database browser for SQLite
   sqlite-web:
@@ -32,9 +52,11 @@ services:
       - ./challenge.db:/data/challenge.db
     command: ["sqlite_web", "/data/challenge.db", "--host", "0.0.0.0", "--port", "8080"]
     depends_on:
-      - topbloc-api
+      - backend
     restart: unless-stopped
+    networks:
+      - topbloc-network
 
 networks:
-  default:
-    name: topbloc-network
+  topbloc-network:
+    driver: bridge

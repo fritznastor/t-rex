@@ -589,6 +589,7 @@ public class DatabaseManager {
 
     // ================ MISSING CRUD METHODS ================
     
+    @SuppressWarnings("unchecked")
     public static String getItemById(int itemId) {
         try {
             String sql = "SELECT id, name FROM items WHERE id = ?";
@@ -677,6 +678,7 @@ public class DatabaseManager {
         }
     }
     
+    @SuppressWarnings("unchecked")
     public static String getDistributorById(int distributorId) {
         try {
             String sql = "SELECT id, name FROM distributors WHERE id = ?";

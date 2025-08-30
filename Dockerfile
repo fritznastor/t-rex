@@ -48,7 +48,7 @@ EXPOSE 4567
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:4567/version || exit 1
+    CMD curl -f http://localhost:4567/inventory || exit 1
 
 # Set the command to run the application with Maven (includes all dependencies)
 CMD ["mvn", "exec:java", "-Dexec.mainClass=com.topbloc.codechallenge.Main"]
