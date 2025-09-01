@@ -302,7 +302,8 @@ public class TestSuite {
         printSection("EDGE CASES & BOUNDARY CONDITIONS");
         
         // Test maximum integer values
-        testEndpoint("POST /inventory - Max int stock", "POST", "/inventory?itemId=1&stock=2147483647&capacity=100", null, 200, "already exists");
+        // POST /inventory - Max int values (edge case)
+        testEndpoint("POST /inventory - Max int stock", "POST", "/inventory?itemId=1&stock=2147483647&capacity=100", null, 400, "Inventory item for this product already exists");
         
         // Test very large numbers
         testEndpoint("POST /distributors/items - Large cost", "POST", "/distributors/1/items?itemId=1&cost=999999.99", null, 200, "success");
