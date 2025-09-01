@@ -202,7 +202,7 @@ public class DatabaseManager {
         String sql = "SELECT i.id, i.name, inv.stock, inv.capacity " +
                     "FROM items i " +
                     "JOIN inventory inv ON i.id = inv.item " +
-                    "WHERE inv.stock < (inv.capacity * 0.35) " +
+                    "WHERE inv.stock > 0 AND inv.stock < (inv.capacity * 0.35) " +
                     "ORDER BY i.id";
         try {
             ResultSet set = conn.createStatement().executeQuery(sql);

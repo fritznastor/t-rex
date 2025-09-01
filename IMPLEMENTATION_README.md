@@ -36,6 +36,29 @@ This repository contains a **complete, production-ready implementation** of the 
                     └─────────────────────┘
 ```
 
+### **Backend Architecture Pattern**
+The backend follows a **Route-Handler Pattern with Data Access Layer**:
+
+```
+┌─────────────────────────┐    ┌──────────────────────────┐
+│      Main.java          │    │    DatabaseManager.java  │
+│  (Spark Routes +        │────▶│  (Data Access Layer +   │
+│   Request Handlers)     │    │   Business Logic)        │
+└─────────────────────────┘    └──────────────────────────┘
+           │                              │
+           ▼                              ▼
+┌─────────────────────────┐    ┌──────────────────────────┐
+│    HTTP Requests        │    │      SQLite Database     │
+│  (Spark Framework)      │    │     (challenge.db)       │
+└─────────────────────────┘    └──────────────────────────┘
+```
+
+**Key Components:**
+- **Main.java**: Route definitions using Spark's DSL + request handling logic
+- **DatabaseManager.java**: Data access layer with SQL operations and business logic
+- **Spark Framework**: Lightweight web framework for HTTP request routing
+- **SQLite Database**: Persistent data storage with normalized schema
+
 ##  Database Schema
 
 The SQLite database implements a normalized schema for candy inventory management:
@@ -139,7 +162,7 @@ Developed `TestSuite.java` with **79 automated tests** covering:
 -  **HTTP compliance** - Proper status codes and headers
 
 ### **Code Quality**
-- Clean separation of concerns (MVC pattern)
+- Clean separation of concerns (Route-Handler pattern with Data Access Layer)
 - Comprehensive error handling and logging
 - Input validation and sanitization
 - Consistent JSON response format
@@ -272,9 +295,9 @@ ALL TESTS PASSED! Your API is working perfectly!
 ```
 backend-code-challenge/
 ├── src/main/java/com/topbloc/codechallenge/
-│   ├── Main.java                    # Spark API server & routes
+│   ├── Main.java                    # Spark route definitions & request handlers
 │   ├── TestSuite.java              # 79 comprehensive tests
-│   └── db/DatabaseManager.java     # Database operations & CRUD
+│   └── db/DatabaseManager.java     # Data access layer & business logic
 ├── frontend/                       # React TypeScript application
 │   ├── src/
 │   │   ├── components/             # UI management modules
@@ -292,7 +315,9 @@ backend-code-challenge/
 ##  Key Features & Innovations
 
 ### **Backend Enhancements**
-- RESTful API design with consistent JSON responses
+- Route-Handler pattern with Spark Framework for lightweight API design
+- Direct route definitions with embedded request handling logic
+- Data Access Layer (DatabaseManager) separating SQL operations from HTTP logic
 - Comprehensive input validation and error handling
 - SQL injection protection with prepared statements
 - CORS configuration for cross-origin requests

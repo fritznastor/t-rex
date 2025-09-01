@@ -78,5 +78,3 @@ Run this test suite:
 **Can't compile?**
 1. Run `mvn clean compile` first
 2. Make sure you have Java 11+ installed
-
-That's all you need to know! Keep your API quality high by running tests regularly.
