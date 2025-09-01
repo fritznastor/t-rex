@@ -19,6 +19,7 @@ import {
   Card,
   CardContent,
   Stack,
+  Tooltip,
 } from '@mui/material';
 import {
   Add,
@@ -27,7 +28,13 @@ import {
   Search,
   Clear,
 } from '@mui/icons-material';
-import { apiService, Item, ItemDistributor } from '../services/api';
+import { apiService, Item, DistributorItem, ItemDistributor } from '../services/api';
+
+// Utility function to truncate text
+const truncateText = (text: string, maxLength: number = 25): string => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
 
 interface ItemFormData {
   name: string;
@@ -352,7 +359,11 @@ const ItemManager: React.FC = () => {
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>{item.id}</TableCell>
-                    <TableCell>{item.name}</TableCell>
+                    <TableCell>
+                      <Tooltip title={item.name} arrow>
+                        <span>{truncateText(item.name)}</span>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -381,7 +392,11 @@ const ItemManager: React.FC = () => {
                 <TableBody>
                   {itemDistributors.map((distributor, index) => (
                     <TableRow key={index}>
-                      <TableCell>{distributor.name}</TableCell>
+                      <TableCell>
+                        <Tooltip title={distributor.name} arrow>
+                          <span>{truncateText(distributor.name)}</span>
+                        </Tooltip>
+                      </TableCell>
                       <TableCell align="right">${distributor.cost.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}

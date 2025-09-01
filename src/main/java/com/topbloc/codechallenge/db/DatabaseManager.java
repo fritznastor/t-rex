@@ -66,7 +66,8 @@ public class DatabaseManager {
                 + "id integer PRIMARY KEY,\n"
                 + "distributor integer NOT NULL references distributors(id) ON DELETE CASCADE,\n"
                 + "item integer NOT NULL references items(id) ON DELETE CASCADE,\n"
-                + "cost float NOT NULL\n" +
+                + "cost float NOT NULL,\n"
+                + "UNIQUE(distributor, item)\n" +
                 ");";
 
         try {
@@ -387,6 +388,7 @@ public class DatabaseManager {
         // Check if distributor and item exist
         String checkDistributorSql = "SELECT id FROM distributors WHERE id = ?";
         String checkItemSql = "SELECT id FROM items WHERE id = ?";
+        String checkExistingSql = "SELECT id FROM distributor_prices WHERE distributor = ? AND item = ?";
         String insertSql = "INSERT INTO distributor_prices (distributor, item, cost) VALUES (?, ?, ?)";
         
         try {
@@ -404,6 +406,16 @@ public class DatabaseManager {
             
             if (!rs2.next()) {
                 return "{\"success\": false, \"message\": \"Item with ID " + itemId + " does not exist\"}";
+            }
+            
+            // Check if this distributor already has a price for this item
+            PreparedStatement checkExistingStmt = conn.prepareStatement(checkExistingSql);
+            checkExistingStmt.setInt(1, distributorId);
+            checkExistingStmt.setInt(2, itemId);
+            ResultSet rs3 = checkExistingStmt.executeQuery();
+            
+            if (rs3.next()) {
+                return "{\"success\": false, \"message\": \"This distributor already has a price for this item. Use update instead.\"}";
             }
             
             PreparedStatement pstmt = conn.prepareStatement(insertSql);

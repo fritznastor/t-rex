@@ -33,6 +33,12 @@ import {
 } from '@mui/icons-material';
 import { apiService, Distributor, DistributorItem, Item } from '../services/api';
 
+// Utility function to truncate text
+const truncateText = (text: string, maxLength: number = 25): string => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
 interface DistributorFormData {
   name: string;
 }
@@ -322,7 +328,11 @@ const DistributorManager: React.FC = () => {
                       {searchResults.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{item.id}</TableCell>
-                          <TableCell>{item.name}</TableCell>
+                          <TableCell>
+                            <Tooltip title={item.name} arrow>
+                              <span>{truncateText(item.name)}</span>
+                            </Tooltip>
+                          </TableCell>
                           <TableCell>${item.cost.toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
@@ -382,7 +392,11 @@ const DistributorManager: React.FC = () => {
                     sx={{ cursor: 'pointer' }}
                   >
                     <TableCell>{distributor.id}</TableCell>
-                    <TableCell>{distributor.name}</TableCell>
+                    <TableCell>
+                      <Tooltip title={distributor.name} arrow>
+                        <span>{truncateText(distributor.name)}</span>
+                      </Tooltip>
+                    </TableCell>
                     <TableCell align="center">
                       <Tooltip title="Delete">
                         <IconButton
@@ -444,7 +458,11 @@ const DistributorManager: React.FC = () => {
                 <TableBody>
                   {distributorPrices.map((price, index) => (
                     <TableRow key={index}>
-                      <TableCell>{price.name}</TableCell>
+                      <TableCell>
+                        <Tooltip title={price.name} arrow>
+                          <span>{truncateText(price.name)}</span>
+                        </Tooltip>
+                      </TableCell>
                       <TableCell align="right">${price.cost.toFixed(2)}</TableCell>
                       <TableCell align="center">
                         <Tooltip title="Edit Price">
@@ -526,11 +544,13 @@ const DistributorManager: React.FC = () => {
             SelectProps={{ native: true }}
           >
             <option value="">Select an item</option>
-            {items.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
+            {items
+              .filter(item => !distributorPrices.some(price => price.id === item.id))
+              .map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
           </TextField>
           <TextField
             label="Cost"

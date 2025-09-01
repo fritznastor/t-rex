@@ -36,6 +36,12 @@ import {
 } from '@mui/icons-material';
 import { apiService, InventoryItem, Item } from '../services/api';
 
+// Utility function to truncate text
+const truncateText = (text: string, maxLength: number = 25): string => {
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
+};
+
 interface InventoryFormData {
   itemId: string;
   stock: string;
@@ -391,7 +397,11 @@ const InventoryManager: React.FC = () => {
               return (
                 <TableRow key={item.id}>
                   <TableCell>{item.id}</TableCell>
-                  <TableCell>{item.name}</TableCell>
+                  <TableCell>
+                    <Tooltip title={item.name} arrow>
+                      <span>{truncateText(item.name)}</span>
+                    </Tooltip>
+                  </TableCell>
                   <TableCell align="right">{item.stock}</TableCell>
                   <TableCell align="right">{item.capacity}</TableCell>
                   <TableCell align="center">
