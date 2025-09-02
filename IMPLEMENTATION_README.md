@@ -110,13 +110,44 @@ distributor_prices (27 records)
 
 ### **Special Features**
 -  `GET /items/:id/cheapest?quantity=N` - Find cheapest restock option
+-  `GET /stream/events` - **Real-time database streaming via Server-Sent Events**
+-  `GET /stream` - **Interactive streaming dashboard**
 -  Comprehensive error handling with proper HTTP status codes
 -  Input validation and SQL injection protection
 -  CORS support for frontend integration
 
 ##  Bonus Challenge Implementations
 
-### **1. React Frontend (Complete SPA)**
+### **1. Real-Time Database Streaming (Challenge Implementation)**
+Implemented a complete **real-time streaming system** that broadcasts database changes to connected clients:
+
+**Features:**
+- **Server-Sent Events (SSE)** for real-time communication
+- **Event Broadcasting** - All database modifications are streamed live
+- **Multi-client Support** - Handles multiple concurrent streaming connections
+- **Interactive Dashboard** - Built-in web interface for testing and monitoring
+- **Automatic Cleanup** - Failed clients are automatically removed from the pool
+
+**Endpoints:**
+- `GET /stream/events` - SSE endpoint for real-time database updates
+- `GET /stream` - Interactive dashboard for viewing live changes
+
+**Supported Events:**
+- `INSERT` operations (items, inventory, distributors)
+- `UPDATE` operations (inventory stock/capacity, pricing)
+- `DELETE` operations (all entities)
+- Connection events and heartbeat monitoring
+
+**Usage Example:**
+```javascript
+const eventSource = new EventSource('http://localhost:4567/stream/events');
+eventSource.addEventListener('update', function(e) {
+    const data = JSON.parse(e.data);
+    console.log(`${data.eventType} on ${data.table}:`, data.data);
+});
+```
+
+### **2. React Frontend (Complete SPA)**
 Built a React application with:
 - **Material-UI Components** - Modern, responsive design
 - **TypeScript Integration** - Type-safe API interactions
@@ -132,7 +163,7 @@ Built a React application with:
   - Success/error notifications
   - Responsive layout with tabbed navigation
 
-### **2. Docker Containerization (Production Ready)**
+### **3. Docker Containerization (Production Ready)**
 Implemented complete containerization with:
 - **Multi-stage Docker builds** for optimized images
 - **Docker Compose orchestration** with 3 services:
@@ -145,7 +176,7 @@ Implemented complete containerization with:
   - Environment variable configuration
   - Network isolation and service discovery
 
-### **3. CSV Export System**
+### **4. CSV Export System**
 Created a secure table export system:
 - Export any database table to CSV format
 - Proper CSV escaping for special characters
@@ -249,6 +280,7 @@ curl "http://localhost:4567/distributors"
 
 ### **API Testing**
 
+```bash
 # Test core endpoints
 curl "http://localhost:4567/version"
 curl "http://localhost:4567/inventory"
@@ -260,6 +292,163 @@ curl "http://localhost:4567/export/csv?table=items" -o items.csv
 
 # Test cheapest restock
 curl "http://localhost:4567/items/1/cheapest?quantity=50"
+```
+
+### **Comprehensive API Testing Commands**
+
+**Basic Endpoints:**
+```bash
+# Server info
+curl "http://localhost:4567/version"
+curl "http://localhost:4567/items"
+
+# Database reset
+curl "http://localhost:4567/reset"
+```
+
+**Inventory Management:**
+```bash
+# Get all inventory
+curl "http://localhost:4567/inventory"
+
+# Filter inventory by status
+curl "http://localhost:4567/inventory/out-of-stock"
+curl "http://localhost:4567/inventory/low-stock" 
+curl "http://localhost:4567/inventory/overstocked"
+
+# Get specific inventory item
+curl "http://localhost:4567/inventory/1"
+
+# Add new inventory item
+curl -X POST "http://localhost:4567/inventory?itemId=1&stock=25&capacity=50"
+
+# Update inventory stock and capacity
+curl -X PUT "http://localhost:4567/inventory/1?stock=30"
+curl -X PUT "http://localhost:4567/inventory/1?capacity=75"
+curl -X PUT "http://localhost:4567/inventory/1?stock=40&capacity=80"
+
+# Delete inventory item
+curl -X DELETE "http://localhost:4567/inventory/1"
+```
+
+**Item Management:**
+```bash
+# Add new items
+curl -X POST "http://localhost:4567/items?name=Test%20Candy"
+curl -X POST "http://localhost:4567/items?name=Super%20Gummy%20Bears"
+
+# Get distributors for specific item
+curl "http://localhost:4567/items/1/distributors"
+
+# Find cheapest restock option
+curl "http://localhost:4567/items/1/cheapest?quantity=25"
+curl "http://localhost:4567/items/2/cheapest?quantity=100"
+```
+
+**Distributor Management:**
+```bash
+# Get all distributors
+curl "http://localhost:4567/distributors"
+
+# Add new distributor
+curl -X POST "http://localhost:4567/distributors?name=Sweet%20Supplier%20Co"
+
+# Get items by distributor
+curl "http://localhost:4567/distributors/1/items"
+
+# Add pricing for distributor
+curl -X POST "http://localhost:4567/distributors/1/items?itemId=1&cost=2.50"
+curl -X POST "http://localhost:4567/distributors/2/items?itemId=3&cost=1.75"
+
+# Update distributor pricing
+curl -X PUT "http://localhost:4567/distributors/1/items/1?cost=2.25"
+
+# Delete distributor pricing
+curl -X DELETE "http://localhost:4567/distributors/1/items/1"
+
+# Delete entire distributor
+curl -X DELETE "http://localhost:4567/distributors/3"
+```
+
+**Data Export:**
+```bash
+# Export all tables to CSV
+curl "http://localhost:4567/export/csv?table=items" -o items.csv
+curl "http://localhost:4567/export/csv?table=inventory" -o inventory.csv
+curl "http://localhost:4567/export/csv?table=distributors" -o distributors.csv
+curl "http://localhost:4567/export/csv?table=distributor_prices" -o pricing.csv
+
+# Invalid table (for error testing)
+curl "http://localhost:4567/export/csv?table=invalid"
+```
+
+**Real-Time Streaming:**
+```bash
+# Test streaming connection (run in background)
+curl -N "http://localhost:4567/stream/events" &
+
+# While streaming is active, make changes to see live updates:
+curl -X PUT "http://localhost:4567/inventory/1?stock=15"
+curl -X PUT "http://localhost:4567/inventory/2?capacity=30"
+curl -X POST "http://localhost:4567/items?name=Live%20Test%20Candy"
+
+# View streaming dashboard in browser
+open "http://localhost:4567/stream"
+```
+
+**Error Testing (for validation):**
+```bash
+# Invalid parameters
+curl -X POST "http://localhost:4567/inventory?itemId=999&stock=10&capacity=20"
+curl -X PUT "http://localhost:4567/inventory/999?stock=10"
+curl -X POST "http://localhost:4567/items?name="
+curl -X POST "http://localhost:4567/distributors/1/items?itemId=1&cost=-5"
+
+# Malformed requests
+curl -X PUT "http://localhost:4567/inventory/abc?stock=10"
+curl -X POST "http://localhost:4567/inventory?itemId=abc&stock=10&capacity=20"
+```
+
+**Load Testing Sequence:**
+```bash
+# Quick sequence to generate multiple streaming events
+for i in {1..5}; do
+  curl -X PUT "http://localhost:4567/inventory/$i?stock=$((RANDOM % 50))"
+  sleep 1
+done
+
+# Batch operations
+curl -X POST "http://localhost:4567/items?name=Batch%20Test%201"
+curl -X POST "http://localhost:4567/items?name=Batch%20Test%202"
+curl -X POST "http://localhost:4567/items?name=Batch%20Test%203"
+```
+
+**Complete Workflow Test:**
+```bash
+# 1. Reset database
+curl "http://localhost:4567/reset"
+
+# 2. Add new item
+curl -X POST "http://localhost:4567/items?name=Workflow%20Test%20Candy"
+
+# 3. Add to inventory
+curl -X POST "http://localhost:4567/inventory?itemId=18&stock=50&capacity=100"
+
+# 4. Add distributor
+curl -X POST "http://localhost:4567/distributors?name=Test%20Distributor"
+
+# 5. Add pricing
+curl -X POST "http://localhost:4567/distributors/4/items?itemId=18&cost=3.00"
+
+# 6. Update stock
+curl -X PUT "http://localhost:4567/inventory/18?stock=25"
+
+# 7. Check cheapest option
+curl "http://localhost:4567/items/18/cheapest?quantity=10"
+
+# 8. Export results
+curl "http://localhost:4567/export/csv?table=inventory" -o workflow_test.csv"
+```
 
 ## Running the Test Suite
 This project includes a comprehensive test suite with 79 automated tests that validate all API endpoints, error handling, and edge cases.

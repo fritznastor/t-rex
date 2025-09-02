@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TopBloc Live Updates Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: #2196F3; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .status { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4CAF50; }
+        .events { background: white; padding: 20px; border-radius: 8px; height: 500px; overflow-y: auto; }
+        .event { padding: 10px; margin: 5px 0; border-left: 3px solid #FF9800; background: #FFF3E0; border-radius: 4px; }
+        .event.INSERT { border-left-color: #4CAF50; background: #E8F5E8; }
+        .event.UPDATE { border-left-color: #2196F3; background: #E3F2FD; }
+        .event.DELETE { border-left-color: #F44336; background: #FFEBEE; }
+        .timestamp { color: #666; font-size: 12px; }
+        .connected { color: #4CAF50; font-weight: bold; }
+        .disconnected { color: #F44336; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <h1>🍭 TopBloc Live Database Updates</h1>
+            <p>Real-time streaming of database changes</p>
+        </div>
+        
+        <div class='status'>
+            <strong>Connection Status:</strong> <span id='status' class='disconnected'>Connecting...</span><br>
+            <strong>Client ID:</strong> <span id='clientId'>-</span><br>
+            <strong>Events Received:</strong> <span id='eventCount'>0</span>
+        </div>
+        
+        <div class='events' id='events'>
+            <p>Waiting for database events...</p>
+        </div>
+    </div>
+    
+    <script>
+        let eventCount = 0;
+        const eventsDiv = document.getElementById('events');
+        const statusSpan = document.getElementById('status');
+        const clientIdSpan = document.getElementById('clientId');
+        const eventCountSpan = document.getElementById('eventCount');
+        
+        const eventSource = new EventSource('/stream/events');
+        
+        eventSource.addEventListener('connected', function(e) {
+            const data = JSON.parse(e.data);
+            statusSpan.textContent = 'Connected';
+            statusSpan.className = 'connected';
+            clientIdSpan.textContent = data.clientId;
+            eventsDiv.innerHTML = '<p>Connected! Listening for database changes...</p>';
+        });
+        
+        eventSource.addEventListener('update', function(e) {
+            const data = JSON.parse(e.data);
+            eventCount++;
+            eventCountSpan.textContent = eventCount;
+            
+            const eventDiv = document.createElement('div');
+            eventDiv.className = 'event ' + data.eventType;
+            
+            const timestamp = new Date(data.timestamp).toLocaleTimeString();
+            eventDiv.innerHTML = `
+                <div class='timestamp'>${timestamp}</div>
+                <strong>${data.eventType}</strong> operation on <strong>${data.table}</strong> table<br>
+                <pre>${JSON.stringify(JSON.parse(data.data), null, 2)}</pre>
+            `;
+            
+            eventsDiv.insertBefore(eventDiv, eventsDiv.firstChild);
+            
+            // Keep only last 50 events
+            while (eventsDiv.children.length > 50) {
+                eventsDiv.removeChild(eventsDiv.lastChild);
+            }
+        });
+        
+        eventSource.onerror = function(e) {
+            statusSpan.textContent = 'Disconnected';
+            statusSpan.className = 'disconnected';
+        };
+    </script>
+</body>
+</html>

@@ -6,6 +6,8 @@ import org.json.simple.JSONObject;
 import java.io.File;
 import java.sql.*;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -14,6 +16,34 @@ public class DatabaseManager {
     private static final String dbName = "challenge.db";
     private static String connectionString;
     private static Connection conn;
+    
+    // Streaming infrastructure
+    private static final List<StreamingClient> streamingClients = new CopyOnWriteArrayList<>();
+    
+    public static class StreamingClient {
+        public final String id;
+        public final CompletableFuture<Void> future;
+        public final java.util.function.Consumer<String> sender;
+        public final long createdAt;
+        public volatile long lastActivity;
+        
+        public StreamingClient(String id, CompletableFuture<Void> future, java.util.function.Consumer<String> sender) {
+            this.id = id;
+            this.future = future;
+            this.sender = sender;
+            this.createdAt = System.currentTimeMillis();
+            this.lastActivity = System.currentTimeMillis();
+        }
+        
+        public boolean isStale() {
+            // Consider client stale if no activity for 60 seconds
+            return (System.currentTimeMillis() - lastActivity) > 60000;
+        }
+        
+        public void updateActivity() {
+            this.lastActivity = System.currentTimeMillis();
+        }
+    }
 
     static {
         File dbFile = new File(dbName);
@@ -290,7 +320,13 @@ public class DatabaseManager {
                     ResultSet rs = stmt.executeQuery("SELECT last_insert_rowid()");
                     if (rs.next()) {
                         int id = rs.getInt(1);
-                        return "{\"success\": true, \"message\": \"Item added successfully\", \"id\": " + id + "}";
+                        String result = "{\"success\": true, \"message\": \"Item added successfully\", \"id\": " + id + "}";
+                        
+                        // Broadcast the update
+                        broadcastUpdate("INSERT", "items", 
+                            "{\"id\": " + id + ", \"name\": \"" + name.replace("\"", "\\\"") + "\"}");
+                        
+                        return result;
                     }
                 } catch (SQLException e) {
                     // If getting the ID fails, still return success since the insert worked
@@ -341,7 +377,13 @@ public class DatabaseManager {
                 ResultSet lastIdRs = stmt.executeQuery("SELECT last_insert_rowid()");
                 if (lastIdRs.next()) {
                     int id = lastIdRs.getInt(1);
-                    return "{\"success\": true, \"message\": \"Inventory item added successfully\", \"id\": " + id + "}";
+                    String result = "{\"success\": true, \"message\": \"Inventory item added successfully\", \"id\": " + id + "}";
+                    
+                    // Broadcast the update
+                    broadcastUpdate("INSERT", "inventory", 
+                        "{\"id\": " + id + ", \"itemId\": " + itemId + ", \"stock\": " + stock + ", \"capacity\": " + capacity + "}");
+                    
+                    return result;
                 }
             }
             return "{\"success\": false, \"message\": \"Failed to add inventory item\"}";
@@ -366,7 +408,13 @@ public class DatabaseManager {
                 ResultSet rs = stmt.executeQuery("SELECT last_insert_rowid()");
                 if (rs.next()) {
                     int id = rs.getInt(1);
-                    return "{\"success\": true, \"message\": \"Distributor added successfully\", \"id\": " + id + "}";
+                    String result = "{\"success\": true, \"message\": \"Distributor added successfully\", \"id\": " + id + "}";
+                    
+                    // Broadcast the update
+                    broadcastUpdate("INSERT", "distributors", 
+                        "{\"id\": " + id + ", \"name\": \"" + name.replace("\"", "\\\"") + "\"}");
+                    
+                    return result;
                 }
             }
             return "{\"success\": false, \"message\": \"Failed to add distributor\"}";
@@ -429,6 +477,8 @@ public class DatabaseManager {
                 ResultSet rs = stmt.executeQuery("SELECT last_insert_rowid()");
                 if (rs.next()) {
                     int id = rs.getInt(1);
+                    broadcastUpdate("INSERT", "distributor_prices", 
+                        "{\"id\":" + id + ",\"distributor_id\":" + distributorId + ",\"item_id\":" + itemId + ",\"cost\":" + cost + "}");
                     return "{\"success\": true, \"message\": \"Distributor price added successfully\", \"id\": " + id + "}";
                 }
             }
@@ -480,7 +530,17 @@ public class DatabaseManager {
             
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
-                return "{\"success\": true, \"message\": \"Inventory item updated successfully\"}";
+                String result = "{\"success\": true, \"message\": \"Inventory item updated successfully\"}";
+                
+                // Broadcast the update
+                StringBuilder updateData = new StringBuilder("{\"itemId\": " + itemId);
+                if (hasStock) updateData.append(", \"stock\": ").append(stock);
+                if (hasCapacity) updateData.append(", \"capacity\": ").append(capacity);
+                updateData.append("}");
+                
+                broadcastUpdate("UPDATE", "inventory", updateData.toString());
+                
+                return result;
             } else {
                 return "{\"success\": false, \"message\": \"Inventory item with ID " + itemId + " not found\"}";
             }
@@ -505,6 +565,8 @@ public class DatabaseManager {
             
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
+                broadcastUpdate("UPDATE", "distributor_prices", 
+                    "{\"distributor_id\":" + distributorId + ",\"item_id\":" + itemId + ",\"cost\":" + cost + "}");
                 return "{\"success\": true, \"message\": \"Distributor price updated successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"No price record found for distributor " + distributorId + " and item " + itemId + "\"}";
@@ -524,6 +586,7 @@ public class DatabaseManager {
             
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
+                broadcastUpdate("DELETE", "inventory", "{\"item_id\":" + itemId + "}");
                 return "{\"success\": true, \"message\": \"Inventory item deleted successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Inventory item with ID " + itemId + " not found\"}";
@@ -542,6 +605,7 @@ public class DatabaseManager {
             
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
+                broadcastUpdate("DELETE", "distributors", "{\"id\":" + distributorId + "}");
                 return "{\"success\": true, \"message\": \"Distributor deleted successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Distributor with ID " + distributorId + " not found\"}";
@@ -561,6 +625,8 @@ public class DatabaseManager {
             
             int rowsAffected = pstmt.executeUpdate();
             if (rowsAffected > 0) {
+                broadcastUpdate("DELETE", "distributor_prices", 
+                    "{\"distributor_id\":" + distributorId + ",\"item_id\":" + itemId + "}");
                 return "{\"success\": true, \"message\": \"Distributor price deleted successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Distributor price not found for distributor ID " + distributorId + " and item ID " + itemId + "\"}";
@@ -672,6 +738,7 @@ public class DatabaseManager {
             
             int rowsAffected = updateStmt.executeUpdate();
             if (rowsAffected > 0) {
+                broadcastUpdate("UPDATE", "items", "{\"id\":" + itemId + ",\"name\":\"" + name + "\"}");
                 return "{\"success\": true, \"message\": \"Item updated successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Failed to update item\"}";
@@ -700,6 +767,7 @@ public class DatabaseManager {
             
             int rowsAffected = deleteStmt.executeUpdate();
             if (rowsAffected > 0) {
+                broadcastUpdate("DELETE", "items", "{\"id\":" + itemId + "}");
                 return "{\"success\": true, \"message\": \"Item deleted successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Failed to delete item\"}";
@@ -761,6 +829,7 @@ public class DatabaseManager {
             
             int rowsAffected = updateStmt.executeUpdate();
             if (rowsAffected > 0) {
+                broadcastUpdate("UPDATE", "distributors", "{\"id\":" + distributorId + ",\"name\":\"" + name + "\"}");
                 return "{\"success\": true, \"message\": \"Distributor updated successfully\"}";
             } else {
                 return "{\"success\": false, \"message\": \"Failed to update distributor\"}";
@@ -839,5 +908,105 @@ public class DatabaseManager {
             System.out.println("Error exporting table to CSV: " + e.getMessage());
             return null;
         }
+    }
+    
+    // ================ STREAMING METHODS ================
+    public static void addStreamingClient(StreamingClient client) {
+        // Clean up stale clients before adding new one
+        cleanupStaleClients();
+        
+        streamingClients.add(client);
+        System.out.println("Added streaming client: " + client.id + " (Total clients: " + streamingClients.size() + ")");
+    }
+    
+    public static void removeStreamingClient(String clientId) {
+        boolean removed = streamingClients.removeIf(client -> client.id.equals(clientId));
+        if (removed) {
+            System.out.println("Removed streaming client: " + clientId + " (Total clients: " + streamingClients.size() + ")");
+        }
+    }
+    
+    public static void cleanupStaleClients() {
+        List<StreamingClient> staleClients = new java.util.ArrayList<>();
+        
+        for (StreamingClient client : streamingClients) {
+            if (client.isStale()) {
+                staleClients.add(client);
+            }
+        }
+        
+        // Remove stale clients
+        for (StreamingClient stale : staleClients) {
+            streamingClients.remove(stale);
+            System.out.println("Cleaned up stale client: " + stale.id + " (inactive for " + 
+                             ((System.currentTimeMillis() - stale.lastActivity) / 1000) + " seconds)");
+        }
+        
+        if (!staleClients.isEmpty()) {
+            System.out.println("Stale cleanup complete. Active clients: " + streamingClients.size());
+        }
+    }
+    
+    public static void cleanupDeadClients() {
+        List<StreamingClient> deadClients = new java.util.ArrayList<>();
+        
+        for (StreamingClient client : streamingClients) {
+            try {
+                // Send a test message to check if client is still alive
+                client.sender.accept("event: ping\ndata: {\"type\": \"ping\"}\n\n");
+                client.updateActivity();
+            } catch (Exception e) {
+                deadClients.add(client);
+            }
+        }
+        
+        // Remove dead clients
+        for (StreamingClient dead : deadClients) {
+            streamingClients.remove(dead);
+            System.out.println("Cleaned up dead client: " + dead.id);
+        }
+        
+        if (!deadClients.isEmpty()) {
+            System.out.println("Dead client cleanup complete. Active clients: " + streamingClients.size());
+        }
+    }
+    
+    public static void broadcastUpdate(String eventType, String table, String data) {
+        if (streamingClients.isEmpty()) {
+            return;
+        }
+        
+        JSONObject event = new JSONObject();
+        event.put("timestamp", System.currentTimeMillis());
+        event.put("eventType", eventType);
+        event.put("table", table);
+        event.put("data", data);
+        
+        String sseData = "data: " + event.toJSONString() + "\n\n";
+        
+        // Remove failed clients
+        List<StreamingClient> failedClients = new java.util.ArrayList<>();
+        
+        for (StreamingClient client : streamingClients) {
+            try {
+                client.sender.accept(sseData);
+                client.updateActivity(); // Update activity on successful send
+            } catch (Exception e) {
+                failedClients.add(client);
+                System.out.println("Failed to send to client " + client.id + ": " + e.getMessage());
+            }
+        }
+        
+        // Clean up failed clients
+        for (StreamingClient failed : failedClients) {
+            removeStreamingClient(failed.id);
+        }
+        
+        System.out.println("Broadcasted " + eventType + " update to " + 
+                          (streamingClients.size()) + " clients for table: " + table);
+    }
+    
+    public static int getActiveStreamingClients() {
+        return streamingClients.size();
     }
 }

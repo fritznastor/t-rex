@@ -1,6 +1,7 @@
 package com.topbloc.codechallenge;
 
 import com.topbloc.codechallenge.db.DatabaseManager;
+import com.topbloc.codechallenge.utils.TemplateLoader;
 
 import static spark.Spark.*;
 
@@ -341,8 +342,115 @@ public class Main {
             return csvData;
         });
         
+        // ================ STREAMING ROUTES ================
+        // Server-Sent Events (SSE) endpoint for real-time database updates
+        get("/stream/events", (req, res) -> {
+            res.header("Content-Type", "text/event-stream");
+            res.header("Cache-Control", "no-cache");
+            res.header("Connection", "keep-alive");
+            res.header("Access-Control-Allow-Origin", "*");
+            res.header("Access-Control-Allow-Headers", "Cache-Control");
+            
+            // Generate unique client ID
+            String clientId = "client_" + System.currentTimeMillis() + "_" + Math.random();
+            
+            try {
+                java.io.PrintWriter writer = new java.io.PrintWriter(res.raw().getOutputStream());
+                
+                // Send initial connection event
+                writer.write("event: connected\n");
+                writer.write("data: {\"clientId\": \"" + clientId + "\", \"message\": \"Connected to TopBloc live updates\"}\n\n");
+                writer.flush();
+                
+                // Create streaming client with simplified sender
+                DatabaseManager.StreamingClient client = new DatabaseManager.StreamingClient(
+                    clientId,
+                    java.util.concurrent.CompletableFuture.completedFuture(null),
+                    (data) -> {
+                        try {
+                            writer.write("event: update\n");
+                            writer.write(data);
+                            writer.flush();
+                        } catch (Exception e) {
+                            System.out.println("Failed to write to client " + clientId + ": " + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                    }
+                );
+                
+                // Add client to the streaming pool
+                DatabaseManager.addStreamingClient(client);
+                
+                // Send periodic heartbeat to keep connection alive and detect disconnects
+                Thread heartbeatThread = new Thread(() -> {
+                    try {
+                        while (!Thread.currentThread().isInterrupted()) {
+                            Thread.sleep(15000); // 15 seconds
+                            try {
+                                writer.write("event: heartbeat\n");
+                                writer.write("data: {\"timestamp\": " + System.currentTimeMillis() + "}\n\n");
+                                writer.flush();
+                            } catch (Exception e) {
+                                // Client disconnected
+                                DatabaseManager.removeStreamingClient(clientId);
+                                Thread.currentThread().interrupt();
+                                break;
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        DatabaseManager.removeStreamingClient(clientId);
+                        Thread.currentThread().interrupt();
+                    }
+                });
+                heartbeatThread.setDaemon(true);
+                heartbeatThread.start();
+                
+                // This will keep the connection open indefinitely
+                // The client disconnect will be handled by the heartbeat failure
+                while (!heartbeatThread.isInterrupted()) {
+                    Thread.sleep(5000);
+                    // Check if heartbeat thread is still alive
+                    if (!heartbeatThread.isAlive()) {
+                        break;
+                    }
+                }
+                
+            } catch (Exception e) {
+                DatabaseManager.removeStreamingClient(clientId);
+                res.status(500);
+                return "{\"error\": \"Failed to establish streaming connection: " + e.getMessage() + "\"}";
+            } finally {
+                DatabaseManager.removeStreamingClient(clientId);
+            }
+            
+            return "";
+        });
+        
+        // Simple streaming dashboard endpoint
+        get("/stream", (req, res) -> {
+            res.header("Content-Type", "text/html");
+            return TemplateLoader.getStreamingDashboard();
+        });
+        
         // Wait for initialization and start server
         awaitInitialization();
         System.out.println("TopBloc server started on http://localhost:4567");
+        System.out.println("Live updates dashboard: http://localhost:4567/stream");
+        
+        // Start periodic cleanup task for streaming clients
+        Thread cleanupTask = new Thread(() -> {
+            while (!Thread.currentThread().isInterrupted()) {
+                try {
+                    Thread.sleep(30000); // Clean up every 30 seconds
+                    DatabaseManager.cleanupStaleClients();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        });
+        cleanupTask.setDaemon(true);
+        cleanupTask.start();
+        System.out.println("Started periodic client cleanup task");
     }
 }

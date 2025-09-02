@@ -94,6 +94,12 @@ const InventoryManager: React.FC = () => {
     }
   };
 
+  
+  const getAvailableItemsToAdd = () => {
+    const inventoryItemIds = inventory.map(invItem => invItem.id);
+    return items.filter(item => !inventoryItemIds.includes(item.id));
+  };
+
   const fetchItems = async () => {
     try {
       const response = await apiService.getItems();
@@ -210,13 +216,15 @@ const InventoryManager: React.FC = () => {
           >
             Refresh
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setDialogOpen(true)}
-          >
-            Add Item
-          </Button>
+          {getAvailableItemsToAdd().length > 0 && (
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => setDialogOpen(true)}
+            >
+              Add Item
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -229,6 +237,12 @@ const InventoryManager: React.FC = () => {
       {success && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
           {success}
+        </Alert>
+      )}
+
+      {getAvailableItemsToAdd().length === 0 && items.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          All available items ({items.length}) are already in your inventory. Create new items in Item Management to add more inventory.
         </Alert>
       )}
 
@@ -449,9 +463,10 @@ const InventoryManager: React.FC = () => {
             fullWidth
             margin="normal"
             SelectProps={{ native: true }}
+            helperText={getAvailableItemsToAdd().length === 0 ? "All items are already in inventory" : `${getAvailableItemsToAdd().length} items available to add`}
           >
             <option value="">Select an item</option>
-            {items.map((item) => (
+            {getAvailableItemsToAdd().map((item) => (
               <option key={item.id} value={item.id}>
                 {item.name}
               </option>
