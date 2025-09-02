@@ -7,7 +7,7 @@ const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
-// Types
+// Core entity interfaces
 export interface Item {
   id: number;
   name: string;
@@ -33,14 +33,8 @@ export interface DistributorPrice {
   cost: number;
 }
 
-// Additional interfaces for actual API responses
+// API response interfaces
 export interface DistributorItem {
-  id: number;
-  name: string;
-  cost: number;
-}
-
-export interface ItemDistributor {
   id: number;
   name: string;
   cost: number;

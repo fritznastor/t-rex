@@ -2,19 +2,21 @@ package com.topbloc.codechallenge;
 
 import com.topbloc.codechallenge.db.DatabaseManager;
 import com.topbloc.codechallenge.utils.TemplateLoader;
+import com.topbloc.codechallenge.utils.ResponseUtils;
+import com.topbloc.codechallenge.constants.AppConstants;
 
 import static spark.Spark.*;
 
 public class Main {
     public static void main(String[] args) {
         // Set port
-        port(4567);
+        port(AppConstants.Config.DEFAULT_PORT);
         
         // Enable CORS globally
         before("*", (req, res) -> {
-            res.header("Access-Control-Allow-Origin", "*");
-            res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-            res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+            res.header(AppConstants.Headers.CORS_ORIGIN, AppConstants.Http.ALL_ORIGINS);
+            res.header(AppConstants.Headers.CORS_METHODS, AppConstants.Http.ALLOWED_METHODS);
+            res.header(AppConstants.Headers.CORS_HEADERS, AppConstants.Http.ALLOWED_HEADERS);
         });
         
         DatabaseManager.connect();
@@ -34,12 +36,12 @@ public class Main {
         });
 
         //TODO: Add your routes here. a couple of examples are below
-        get("/items", (req, res) -> {
-            res.header("Content-Type", "application/json");
+        get(AppConstants.Endpoints.ITEMS, (req, res) -> {
+            ResponseUtils.setJsonHeaders(res);
             return DatabaseManager.getItems();
         });
-        get("/version", (req, res) -> {
-            return "TopBloc Code Challenge v1.0";
+        get(AppConstants.Endpoints.VERSION, (req, res) -> {
+            return AppConstants.Config.VERSION_STRING;
         });
 
         // ================ INVENTORY GET ROUTES ================
@@ -121,20 +123,17 @@ public class Main {
 
         // ================ POST ROUTES ================
         // Add a new item to the database
-        post("/items", (req, res) -> {
-            res.header("Content-Type", "application/json");
-            String name = req.queryParams("name");
-            if (name == null || name.trim().isEmpty()) {
+        post(AppConstants.Endpoints.ITEMS, (req, res) -> {
+            ResponseUtils.setJsonHeaders(res);
+            try {
+                String name = ResponseUtils.validateStringParam(req.queryParams("name"), "Item name");
+                String result = DatabaseManager.addItem(name);
+                ResponseUtils.setStatusFromResult(res, result);
+                return result;
+            } catch (IllegalArgumentException e) {
                 res.status(400);
-                return "{\"error\": \"Item name is required\"}";
+                return AppConstants.ErrorMessages.ITEM_NAME_REQUIRED;
             }
-            String result = DatabaseManager.addItem(name.trim());
-            if (result.contains("\"success\": false")) {
-                res.status(400);
-            } else {
-                res.status(200);
-            }
-            return result;
         });
 
         // Add a new item to inventory

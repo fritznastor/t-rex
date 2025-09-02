@@ -971,6 +971,7 @@ public class DatabaseManager {
         }
     }
     
+    @SuppressWarnings("unchecked")
     public static void broadcastUpdate(String eventType, String table, String data) {
         if (streamingClients.isEmpty()) {
             return;

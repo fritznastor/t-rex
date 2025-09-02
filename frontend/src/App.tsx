@@ -76,7 +76,7 @@ function App() {
       <AppBar position="static" elevation={1}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            TopBloc Inventory Management System
+            ECP Management System
           </Typography>
         </Toolbar>
       </AppBar>
