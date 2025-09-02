@@ -389,6 +389,10 @@ public class Main {
                                 writer.write("event: heartbeat\n");
                                 writer.write("data: {\"timestamp\": " + System.currentTimeMillis() + "}\n\n");
                                 writer.flush();
+                                
+                                // Update client activity to prevent stale cleanup
+                                client.updateActivity();
+                                
                             } catch (Exception e) {
                                 // Client disconnected
                                 DatabaseManager.removeStreamingClient(clientId);

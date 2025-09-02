@@ -36,8 +36,9 @@ public class DatabaseManager {
         }
         
         public boolean isStale() {
-            // Consider client stale if no activity for 60 seconds
-            return (System.currentTimeMillis() - lastActivity) > 60000;
+            // Consider client stale if no activity for 2 minutes (120 seconds)
+            // This gives enough buffer for heartbeat intervals and network delays
+            return (System.currentTimeMillis() - lastActivity) > 120000;
         }
         
         public void updateActivity() {
@@ -952,8 +953,11 @@ public class DatabaseManager {
         
         for (StreamingClient client : streamingClients) {
             try {
-                // Send a test message to check if client is still alive
-                client.sender.accept("event: ping\ndata: {\"type\": \"ping\"}\n\n");
+                // Only ping clients that haven't been active recently to avoid spam
+                if ((System.currentTimeMillis() - client.lastActivity) > 30000) {
+                    // Send a test message to check if client is still alive
+                    client.sender.accept("event: ping\ndata: {\"type\": \"ping\"}\n\n");
+                }
                 client.updateActivity();
             } catch (Exception e) {
                 deadClients.add(client);
