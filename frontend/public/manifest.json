@@ -1,6 +1,6 @@
 {
-  "short_name": "TopBloc Inventory",
-  "name": "TopBloc Inventory Management System",
+  "short_name": "ECP",
+  "name": "ECP Management System",
   "icons": [],
   "start_url": ".",
   "display": "standalone",
