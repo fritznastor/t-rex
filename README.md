@@ -1,10 +1,10 @@
 # TopBloc Backend Code Challenge - Complete Implementation
 
-##  Overview
+## Overview
 
 This repository contains a **complete, production-ready implementation** of the TopBloc Backend Code Challenge for an Enterprise Candy Planning (ECP) system. What started as a basic API challenge has been transformed into a full-stack application with modern architecture, comprehensive testing, and containerized deployment.
 
-##  Architecture
+## Architecture
 
 ### **Technology Stack**
 - **Backend**: Java 11 + Spark Framework + SQLite
@@ -85,7 +85,7 @@ distributor_prices (27 records)
 └── cost
 ```
 
-## ✅ Core Challenge Implementation
+## Core Challenge Implementation
 
 ### **All Required GET Routes**
 -  `GET /inventory` - All inventory items with stock levels
@@ -116,7 +116,7 @@ distributor_prices (27 records)
 -  Input validation and SQL injection protection
 -  CORS support for frontend integration
 
-##  Bonus Challenge Implementations
+## Bonus Challenge Implementations
 
 ### **1. Real-Time Database Streaming (Challenge Implementation)**
 Implemented a complete **real-time streaming system** that broadcasts database changes to connected clients:
@@ -183,7 +183,7 @@ Created a secure table export system:
 - Security validation against table injection
 - RESTful endpoint: `GET /export/csv?table=tablename`
 
-##  Quality Assurance
+## Quality Assurance
 
 ### **Comprehensive Test Suite**
 Developed `TestSuite.java` with **79 automated tests** covering:
@@ -200,7 +200,9 @@ Developed `TestSuite.java` with **79 automated tests** covering:
 - Consistent JSON response format
 - Modern Java practices with prepared statements
 
-##  Getting Started
+- Comprehensive error scenarios testing
+
+## Getting Started
 
 ### **Prerequisites**
 - Docker & Docker Compose
@@ -244,11 +246,14 @@ java -cp "target/classes" com.topbloc.codechallenge.TestSuite
 To reset the database to its original state with fresh seed data:
 
 **Step 1: Stop Docker containers (if running)**
+```bash
 docker compose down
+```
 
 **Step 2: Start the backend server locally**
 Choose one of these options in your first terminal:
 
+```bash
 # Option A: IDE - Press the "Run" button on Main.java
 
 # Option B: Full command
@@ -256,11 +261,13 @@ mvn exec:java -Dexec.mainClass="com.topbloc.codechallenge.Main"
 
 # Option C: Short command (uses pom.xml configuration)
 mvn exec:java
-
+```
 
 **Step 3: Trigger the database reset**
 In a second terminal, call the reset endpoint:
+```bash
 curl "http://localhost:4567/reset"
+```
 
 **Step 4: Verify the reset worked**
 You should see this output in your first terminal:
@@ -274,9 +281,11 @@ Database seeded
 **Step 5: Confirm database state (optional)**
 Verify the reset by checking the data:
 
+```bash
 curl "http://localhost:4567/inventory"
 curl "http://localhost:4567/items"
 curl "http://localhost:4567/distributors"
+```
 
 ### **API Testing**
 
@@ -447,29 +456,31 @@ curl -X PUT "http://localhost:4567/inventory/18?stock=25"
 curl "http://localhost:4567/items/18/cheapest?quantity=10"
 
 # 8. Export results
-curl "http://localhost:4567/export/csv?table=inventory" -o workflow_test.csv"
+curl "http://localhost:4567/export/csv?table=inventory" -o workflow_test.csv
 ```
 
 ## Running the Test Suite
 This project includes a comprehensive test suite with 79 automated tests that validate all API endpoints, error handling, and edge cases.
 
-### Quick Test Run
+### **Quick Test Run**
+```bash
 # 1. Start your server first
 mvn exec:java -Dexec.mainClass="com.topbloc.codechallenge.Main"
 
 # 2. In another terminal, compile and run tests
 mvn compile
 java -cp "target/classes" com.topbloc.codechallenge.TestSuite
+```
 
-
-### Using Docker
-
+### **Using Docker**
+```bash
 # Start the full stack
 docker-compose up --build -d
 
 # Run tests against the containerized API
 mvn compile
 java -cp "target/classes" com.topbloc.codechallenge.TestSuite
+```
 
 
 ### What the Tests Cover
@@ -510,12 +521,12 @@ ALL TESTS PASSED! Your API is working perfectly!
 ======================================================================
 ```
 
-### Troubleshooting Tests
+### **Troubleshooting Tests**
 - **Server not running?** Make sure the API is accessible at `http://localhost:4567`
 - **Tests failing?** Try resetting the database: `curl "http://localhost:4567/reset"`
 - **Compilation issues?** Run `mvn clean compile` first
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 backend-code-challenge/
@@ -537,7 +548,7 @@ backend-code-challenge/
 └── README.md                       # Original challenge requirements
 ```
 
-##  Key Features & Innovations
+## Key Features & Innovations
 
 ### **Backend Enhancements**
 - Route-Handler pattern with Spark Framework for lightweight API design
@@ -570,7 +581,7 @@ backend-code-challenge/
 - Proper HTTP status code implementation
 - Comprehensive error scenarios testing
 
-##  Performance & Scalability
+## Performance & Scalability
 
 - **Database**: SQLite with proper indexing and foreign key constraints
 - **API**: Efficient SQL queries with prepared statements
