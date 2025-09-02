@@ -64,7 +64,7 @@ The backend follows a **Route-Handler Pattern with Data Access Layer**:
 The SQLite database implements a normalized schema for candy inventory management:
 
 ```sql
-items (18 records)
+items (17 records)
 ├── id (PK)
 └── name (unique)
 
@@ -78,7 +78,7 @@ distributors (3 records)
 ├── id (PK) 
 └── name (unique)
 
-distributor_prices (29 records)
+distributor_prices (27 records)
 ├── id (PK)
 ├── distributor (FK → distributors.id)
 ├── item (FK → items.id)
@@ -125,6 +125,7 @@ Built a React application with:
   - `DistributorManager` - Supplier and pricing management
   - `ItemManager` - Product catalog management  
   - `ExportManager` - CSV export functionality
+
 - **Advanced Features**:
   - Real-time filtering (out-of-stock, low-stock, overstocked)
   - Complete CRUD operations with form validation
@@ -190,7 +191,7 @@ echo "Backend API: http://localhost:4567"
 echo "DB Browser:  http://localhost:8080"
 
 # Test the setup
-curl http://localhost:4567/inventory
+curl "http://localhost:4567/inventory"
 ```
 
 ### **Development Mode**
@@ -208,44 +209,79 @@ mvn compile
 java -cp "target/classes" com.topbloc.codechallenge.TestSuite
 ```
 
+### **Resetting the Database**
+To reset the database to its original state with fresh seed data:
+
+**Step 1: Stop Docker containers (if running)**
+docker compose down
+
+**Step 2: Start the backend server locally**
+Choose one of these options in your first terminal:
+
+# Option A: IDE - Press the "Run" button on Main.java
+
+# Option B: Full command
+mvn exec:java -Dexec.mainClass="com.topbloc.codechallenge.Main"
+
+# Option C: Short command (uses pom.xml configuration)
+mvn exec:java
+
+
+**Step 3: Trigger the database reset**
+In a second terminal, call the reset endpoint:
+curl "http://localhost:4567/reset"
+
+**Step 4: Verify the reset worked**
+You should see this output in your first terminal:
+```
+Applying schema
+Schema applied
+Seeding database
+Database seeded
+```
+
+**Step 5: Confirm database state (optional)**
+Verify the reset by checking the data:
+
+curl "http://localhost:4567/inventory"
+curl "http://localhost:4567/items"
+curl "http://localhost:4567/distributors"
+
 ### **API Testing**
-```bash
+
 # Test core endpoints
-curl http://localhost:4567/version
-curl http://localhost:4567/inventory
-curl http://localhost:4567/inventory/low-stock
-curl http://localhost:4567/distributors
+curl "http://localhost:4567/version"
+curl "http://localhost:4567/inventory"
+curl "http://localhost:4567/inventory/low-stock"
+curl "http://localhost:4567/distributors"
 
 # Test CSV export
 curl "http://localhost:4567/export/csv?table=items" -o items.csv
 
 # Test cheapest restock
 curl "http://localhost:4567/items/1/cheapest?quantity=50"
-```
 
 ## Running the Test Suite
-
 This project includes a comprehensive test suite with 79 automated tests that validate all API endpoints, error handling, and edge cases.
 
 ### Quick Test Run
-```bash
 # 1. Start your server first
 mvn exec:java -Dexec.mainClass="com.topbloc.codechallenge.Main"
 
 # 2. In another terminal, compile and run tests
 mvn compile
 java -cp "target/classes" com.topbloc.codechallenge.TestSuite
-```
+
 
 ### Using Docker
-```bash
+
 # Start the full stack
 docker-compose up --build -d
 
 # Run tests against the containerized API
 mvn compile
 java -cp "target/classes" com.topbloc.codechallenge.TestSuite
-```
+
 
 ### What the Tests Cover
 -  **All API endpoints** - GET, POST, PUT, DELETE operations
