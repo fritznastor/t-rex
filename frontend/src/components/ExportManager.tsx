@@ -167,7 +167,7 @@ const ExportManager: React.FC = () => {
       </Card>
 
       {/* Info Section */}
-      <Card sx={{ mt: 3, backgroundColor: 'grey.50' }}>
+      <Card sx={{ mt: 3, backgroundColor: 'action.hover' }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             Export Information

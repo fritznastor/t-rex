@@ -20,6 +20,7 @@ import {
   CardContent,
   Stack,
   Tooltip,
+  MenuItem,
 } from '@mui/material';
 import {
   Add,
@@ -212,9 +213,9 @@ const ItemManager: React.FC = () => {
 
       {/* Cheapest Restock Option Display */}
       {cheapestResult && (
-        <Card sx={{ mb: 3, backgroundColor: '#e3f2fd' }}>
+        <Card sx={{ mb: 3, backgroundColor: 'primary.light', color: 'primary.contrastText' }}>
           <CardContent>
-            <Typography variant="h6" gutterBottom color="primary">
+            <Typography variant="h6" gutterBottom color="inherit">
               Cheapest Restock Option
             </Typography>
             <Typography>
@@ -449,13 +450,14 @@ const ItemManager: React.FC = () => {
             onChange={(e) => setCheapestFormData({ ...cheapestFormData, itemId: e.target.value })}
             fullWidth
             margin="normal"
-            SelectProps={{ native: true }}
           >
-            <option value="">Select an item</option>
+            <MenuItem value="">
+              <em>Select an item</em>
+            </MenuItem>
             {items.map((item) => (
-              <option key={item.id} value={item.id}>
+              <MenuItem key={item.id} value={item.id}>
                 {item.name}
-              </option>
+              </MenuItem>
             ))}
           </TextField>
           <TextField

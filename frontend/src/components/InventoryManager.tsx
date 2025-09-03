@@ -22,6 +22,7 @@ import {
   IconButton,
   Tooltip,
   Stack,
+  MenuItem,
 } from '@mui/material';
 import {
   Add,
@@ -462,14 +463,15 @@ const InventoryManager: React.FC = () => {
             onChange={(e) => setFormData({ ...formData, itemId: e.target.value })}
             fullWidth
             margin="normal"
-            SelectProps={{ native: true }}
             helperText={getAvailableItemsToAdd().length === 0 ? "All items are already in inventory" : `${getAvailableItemsToAdd().length} items available to add`}
           >
-            <option value="">Select an item</option>
+            <MenuItem value="">
+              <em>Select an item</em>
+            </MenuItem>
             {getAvailableItemsToAdd().map((item) => (
-              <option key={item.id} value={item.id}>
+              <MenuItem key={item.id} value={item.id}>
                 {item.name}
-              </option>
+              </MenuItem>
             ))}
           </TextField>
           <TextField
